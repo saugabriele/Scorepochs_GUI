@@ -4,146 +4,170 @@ import numpy as np
 from numpy import size
 from os.path import expanduser,abspath
 from PyQt5 import QtWidgets, uic, QtCore
-from PyQt5.QtWidgets import QDialog, QFileDialog, QApplication, QMainWindow,QVBoxLayout, QPushButton, QLabel,\
-    QLineEdit, QDoubleSpinBox, QComboBox
+from PyQt5.QtWidgets import QMainWindow, QApplication, QFrame, QStackedWidget, QWidget, QPushButton, QLineEdit,\
+    QFileDialog,QLabel,QTextEdit,QVBoxLayout,QScrollArea,QRadioButton
 from PyQt5.uic import loadUi
 from PyQt5.QtGui import QDoubleValidator, QValidator
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
-
-class MiApp(QMainWindow):
+class ScorepochsApp(QMainWindow):
     def __init__(self):
-        super(MiApp, self).__init__()
+        super(ScorepochsApp, self).__init__()
         loadUi('qt_tesi.ui', self)
-        self.min = 0
-        self.max = 0
-        self.grafica = Canvas_grafica()
         self.data_proc = Data_Processing()
-        self.grafica_uno = self.findChild(QVBoxLayout, 'grafica_uno')
-        self.browse = self.findChild(QPushButton, 'browse')
-        self.filename = self.findChild(QLineEdit, 'filename')
-        self.startplot = self.findChild(QPushButton, 'startplot')
-        self.number_channels = self.findChild(QLineEdit, 'number_channels')
-        self.frequency = self.findChild(QLineEdit, 'frequency')
-        self.simulation = self.findChild(QPushButton, 'simulation')
-        self.min_time = self.findChild(QLineEdit, 'min_time')
-        self.max_time = self.findChild(QLineEdit, 'max_time')
+        self.Windows = self.findChild(QFrame, 'windows_frame')
+        self.Menu_frame = self.findChild(QFrame, 'menu_frame')
+        self.windows_StackedWidget = self.findChild(QStackedWidget, 'windows_StackedWidget')
+        self.data_page = self.Windows.findChild(QWidget, 'data_page')
+        self.plot_page = self.Windows.findChild(QWidget, 'plot_result_page')
+        self.start_page = self.Windows.findChild(QWidget, 'start_page')
+        self.example_page = self.Windows.findChild(QWidget, 'example_page')
+        self.data_frame = self.data_page.findChild(QFrame, 'data_frame')
+        self.browse = self.data_frame.findChild(QPushButton, 'browse_button')
+        self.filename = self.data_frame.findChild(QLabel, 'filename')
+        self.frequency = self.data_frame.findChild(QLineEdit, 'frequency')
+        self.error_message_filename = self.data_frame.findChild(QLabel, 'error_message_file')
+        self.error_message_frequency = self.data_frame.findChild(QLabel, 'error_message_frequency')
+        self.error_message = self.data_frame.findChild(QTextEdit, 'error_message')
+        self.add_plot = self.Menu_frame.findChild(QPushButton, 'plot_button')
+        self.add_file = self.Menu_frame.findChild(QPushButton, 'addfile_button')
+        self.example_button = self.Menu_frame.findChild(QPushButton, 'example_button')
+        self.plot_scrollArea = self.Windows.findChild(QScrollArea, 'plot_scrollArea')
+        self.widget_scrollArea = self.Windows.findChild(QWidget, 'scrollAreaWidget')
+        self.frequency_example = self.Windows.findChild(QLineEdit, 'frequency_example')
+        self.time_example = self.Windows.findChild(QLineEdit, 'time_example')
+        self.number_channels_example = self.Windows.findChild(QLineEdit, 'number_channels_example')
+        self.error_message_channels_example = self.Windows.findChild(QLabel, 'error_message_channels_example')
+        self.error_message_frequency_example = self.Windows.findChild(QLabel, 'error_message_frequency_example')
+        self.error_message_example = self.Windows.findChild(QLabel, 'error_message_example')
+        self.error_message_time_example = self.Windows.findChild(QLabel, 'error_message_time_example')
+        self.create_file_button = self.Windows.findChild(QPushButton, 'create_file_button')
         self.browse.clicked.connect(self.browseFile)
-        self.startplot.clicked.connect(self.get_List)
-        self.simulation.clicked.connect(self.create_example)
-        self.grafica_uno.addWidget(self.grafica)
-        self.frequency.editingFinished.connect(self.validating_frequenza)
-        self.number_channels.editingFinished.connect(self.validating_number_channels)
-        self.min_time.editingFinished.connect(self.validating_min_time)
-        self.max_time.editingFinished.connect(self.validating_max_time)
+        self.add_plot.clicked.connect(self.get_List)
+        self.add_file.clicked.connect(self.changepage_addfile)
+        self.example_button.clicked.connect(self.changepage_createExample)
+        self.create_file_button.clicked.connect(self.create_example)
+        self.windows_StackedWidget.setCurrentWidget(self.start_page)
+        self.plot_scrollArea.setWidgetResizable(True)
+        self.scroll_layout = QVBoxLayout(self.widget_scrollArea)
+        self.frequency.editingFinished.connect(self.validating_frequency)
+        self.frequency_example.editingFinished.connect(self.validating_frequency_example)
+        self.number_channels_example.editingFinished.connect(self.validating_number_channels_example)
+        self.time_example.editingFinished.connect(self.validating_time_example)
 
     def browseFile(self):
         global fname
         home_directory = expanduser('~')
         fname, _ = QFileDialog.getOpenFileNames(self, 'Open file', home_directory, 'CSV Files (*.csv)')
-        self.filename.setText(str(fname[0]))
-        self.fileselected = str(fname[0])
+        if fname == []:
+            self.error_message_filename.setText('No File Selected')
+        else:
+            self.error_message.clear()
+            self.error_message_filename.clear()
+            self.filename.setText(str(fname[0]))
+            self.fileselected = str(fname[0])
 
-    def validating_frequenza(self):
-        rule = QDoubleValidator(1,1000,0)
-        list = rule.validate(self.frequency.text(),0)
+    def validating_frequency(self):
+        self.error_message.clear()
+        self.error_message_frequency.clear()
+        rule = QDoubleValidator(1, 1000, 0)
+        list = rule.validate(self.frequency.text(), 0)
         if list[0] != 2:
-            sys.exit(app.exec_())
+            self.error_message_frequency.setText('The frequency can have a value from 1 to 1000 [Hz]')
 
-    def validating_number_channels(self):
+    def validating_frequency_example(self):
+        self.error_message_frequency_example.clear()
+        rule = QDoubleValidator(1, 1000, 0)
+        list = rule.validate(self.frequency_example.text(), 0)
+        if list[0] != 2:
+            self.error_message_frequency_example.setText('The frequency can have a value from 1 to 1000 [Hz]\n')
+
+    def validating_number_channels_example(self):
+        self.error_message_channels_example.clear()
         rule = QDoubleValidator(1, 64, 0)
-        list = rule.validate(self.number_channels.text(), 0)
+        list = rule.validate(self.number_channels_example.text(), 0)
         if list[0] != 2:
-            sys.exit(app.exec_())
+            self.error_message_channels_example.setText('The number of channels can have a value from 1 to 64\n')
 
-    def validating_min_time(self):
-        rule = QDoubleValidator(-100000, 100000, 5)
-        list = rule.validate(self.min_time.text(), 0)
+    def validating_time_example(self):
+        self.error_message_time_example.clear()
+        rule = QDoubleValidator(1, 100, 0)
+        list = rule.validate(self.time_example.text(), 0)
         if list[0] != 2:
-            sys.exit(app.exec_())
-        string_value = self.min_time.text()
-        self.min = float(string_value.replace(',','.'))
-
-    def validating_max_time(self):
-        rule = QDoubleValidator(-100000, 100000, 5)
-        list = rule.validate(self.max_time.text(), 0)
-        if list[0] != 2:
-            sys.exit(app.exec_())
-        string_value = self.max_time.text()
-        self.max = float(string_value.replace(',','.'))
+            self.error_message_time_example.setText(
+                'The sampling duration can have a value from 1 to 100 [s]\n')
 
     def get_List(self):
-        Yarray , Xarray = self.data_proc.csv_File(self.fileselected, int(self.frequency.text()),
-                                                  int(self.number_channels.text()))
-        if self.max>=self.min:
-            self.grafica.plot(Yarray, Xarray, self.min,self.max)
+        self.error_message.clear()
+        if str(self.error_message_filename.text()) != '' or str(self.error_message_frequency.text()) != '' or \
+                    str(self.frequency.text()) == '' or str(self.filename.text()) == '':
+            self.windows_StackedWidget.setCurrentWidget(self.data_page)
+            self.error_message.setText('Enter the data correctly')
         else:
-            sys.exit(app.exec_())
+            Yarray, Xarray = self.data_proc.csv_File(self.fileselected, int(self.frequency.text()))
+            self.plot(Yarray,Xarray)
 
-    def create_example(self):
-        with open('new.csv', 'w', newline='') as f:
-            compile_csv = csv.writer(f)
-            for i in range(int(self.number_channels.text())):
-                signal_freq = 2
-                time_steps = np.arange(0, 10.01, (1/int(self.frequency.text())))
-                y = ((i + 1) * 0.2) * np.sin(2 * np.pi * signal_freq * time_steps)
-                compile_csv.writerow(y)
-        self.fileselected = str(abspath('new.csv'))
-        self.get_List()
+    def changepage_addfile(self):
+        self.windows_StackedWidget.setCurrentWidget(self.data_page)
 
+    def changepage_createExample(self):
+        self.windows_StackedWidget.setCurrentWidget(self.example_page)
 
+    def plot(self, y, x):
+        self.clear_layout()
+        self.canvas = FigureCanvas(Figure())
+        toolbar = NavigationToolbar(self.canvas, self)
+        container = QWidget()
+        lay = QVBoxLayout(container)
+        lay.addWidget(toolbar)
+        for i in range(len(y)):
+            ax = self.canvas.figure.add_subplot(len(y), 1, (i + 1))
+            ax.plot(x,y[i])
+            ax.title.set_text('channel'+str(i+1))
+            ax.title.set_size(8)
+            self.canvas.figure.subplots_adjust(0.15, 0.02, 0.82, 0.98, 0, 0.35)
+            lay.addWidget(self.canvas)
+        self.scroll_layout.addWidget(container)
+        container.setMinimumHeight(200 * len(y))
+        self.windows_StackedWidget.setCurrentWidget(self.plot_page)
 
-class Canvas_grafica(FigureCanvas):
-    def __init__(self):
-        self.fig = Figure()
-        FigureCanvas.__init__(self,self.fig)
+    def clear_layout(self):
+        if self.scroll_layout is not None:
+            while self.scroll_layout.count():
+                item = self.scroll_layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
+                else:
+                    self.clearLayout(item.layout())
 
+    @QtCore.pyqtSlot()
+    def create_example(self, signal_frequency=2):
+        self.error_message_example.clear()
+        if str(self.error_message_frequency_example.text()) == '' and str(self.error_message_time_example.text()) == ''\
+                and str(self.error_message_channels_example.text()) == '':
+            with open('new.csv', 'w', newline='') as f:
+                compile_csv = csv.writer(f)
+                for i in range(int(self.number_channels_example.text())):
+                    signal_frequency = signal_frequency + (i * 0.2)
+                    time_steps = np.arange(0, int(self.time_example.text()), (1 / int(self.frequency_example.text())))
+                    y = ((i + 1) * 0.2) * np.sin(2 * np.pi * signal_frequency * time_steps)
+                    compile_csv.writerow(y)
+        else:
+            self.error_message_example.setText('Enter the data correctly')
 
-    def plot(self,array, x, min, max):
-        self.fig.clear()
-        labels = []
-        self.ax = self.fig.add_subplot(111)
-        self.ax.set_xlabel('Time')
-        for i in range(len(array)):
-            self.ax.plot(x,array[i])
-            labels.append('channel ' + str(i+1))
-        if max!=0:
-                self.ax.set_xlim([min, max])
-        self.fig.legend(labels)
-        self.fig.tight_layout()
-        self.draw()
 
 class Data_Processing:
 
-    def csv_File(self, file_name, frequency, number_ch):
-        with open(file_name) as f:
-            Yarray = []
-            Xarray = []
-            for j in range(number_ch):
-                line = next(f)
-                Yarray.append([float(x) for x in line.split(',')])
-            for i in range(size(Yarray[0])):
-                Xarray.append((1/frequency) * (i + 1))
+    def csv_File(self, file_name, frequency):
+        Yarray = np.loadtxt(file_name, delimiter = ',')
+        Xarray = np.arange(0, size(Yarray[0])/frequency, 1/frequency)
         return Yarray, Xarray
-"""
-    def plot_example(self, s_freq):
-        signal_freq= 1
-        increment = float(signal_freq/s_freq)
-        time_steps= np.arange(0, 10.01, increment)
-        y = np.sin(2 * np.pi * signal_freq * time_steps)
-        self.fig.clear()
-        self.ax = self.fig.add_subplot(111)
-        self.ax.set_xlabel('Time')
-        self.ax.set_xlim([0,10.01])
-        self.ax.plot(time_steps, y)
-        self.fig.tight_layout()
-        self.draw()
-"""
-
 
 app= QApplication(sys.argv)
-mi_app = MiApp()
-mi_app.show()
+scorepochs = ScorepochsApp()
+scorepochs.show()
 sys.exit(app.exec_())
