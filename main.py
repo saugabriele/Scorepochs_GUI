@@ -3,6 +3,7 @@ import sys
 import numpy as np
 from numpy import size
 from os.path import expanduser,abspath
+from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5 import QtWidgets, uic, QtCore
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFrame, QStackedWidget, QWidget, QPushButton, QLineEdit,\
     QFileDialog,QLabel,QTextEdit,QVBoxLayout,QScrollArea,QRadioButton
@@ -12,18 +13,25 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+import plotly.io as pio
+from plotly.graph_objs import Layout,Scatter, Figure, Marker
+from plotly.graph_objs.layout import YAxis, Annotation
+from plotly.graph_objs.layout.annotation import Font
+import plotly.offline as plt
 
 class ScorepochsApp(QMainWindow):
     def __init__(self):
         super(ScorepochsApp, self).__init__()
         loadUi('qt_tesi.ui', self)
         self.data_proc = Data_Processing()
+        self.fileselected =''
         self.Windows = self.findChild(QFrame, 'windows_frame')
         self.Menu_frame = self.findChild(QFrame, 'menu_frame')
         self.windows_StackedWidget = self.findChild(QStackedWidget, 'windows_StackedWidget')
         self.data_page = self.Windows.findChild(QWidget, 'data_page')
         self.plot_page = self.Windows.findChild(QWidget, 'plot_result_page')
         self.start_page = self.Windows.findChild(QWidget, 'start_page')
+        self.file_created_page = self.Windows.findChild(QWidget, 'file_created_page')
         self.example_page = self.Windows.findChild(QWidget, 'example_page')
         self.data_frame = self.data_page.findChild(QFrame, 'data_frame')
         self.browse = self.data_frame.findChild(QPushButton, 'browse_button')
@@ -44,6 +52,8 @@ class ScorepochsApp(QMainWindow):
         self.error_message_frequency_example = self.Windows.findChild(QLabel, 'error_message_frequency_example')
         self.error_message_example = self.Windows.findChild(QLabel, 'error_message_example')
         self.error_message_time_example = self.Windows.findChild(QLabel, 'error_message_time_example')
+        self.message_create_file = self.Windows.findChild(QLabel, 'message_create_file')
+        self.message_data_processing = self.Windows.findChild(QLabel, 'message_data_processing')
         self.create_file_button = self.Windows.findChild(QPushButton, 'create_file_button')
         self.browse.clicked.connect(self.browseFile)
         self.add_plot.clicked.connect(self.get_List)
@@ -63,15 +73,16 @@ class ScorepochsApp(QMainWindow):
         home_directory = expanduser('~')
         fname, _ = QFileDialog.getOpenFileNames(self, 'Open file', home_directory, 'CSV Files (*.csv)')
         if fname == []:
-            self.error_message_filename.setText('No File Selected')
+            if self.fileselected == '':
+                    self.error_message_filename.setText('No File Selected')
+            else:
+                return
         else:
-            self.error_message.clear()
             self.error_message_filename.clear()
             self.filename.setText(str(fname[0]))
             self.fileselected = str(fname[0])
 
     def validating_frequency(self):
-        self.error_message.clear()
         self.error_message_frequency.clear()
         rule = QDoubleValidator(1, 1000, 0)
         list = rule.validate(self.frequency.text(), 0)
@@ -107,33 +118,51 @@ class ScorepochsApp(QMainWindow):
             self.windows_StackedWidget.setCurrentWidget(self.data_page)
             self.error_message.setText('Enter the data correctly')
         else:
-            Yarray, Xarray = self.data_proc.csv_File(self.fileselected, int(self.frequency.text()))
-            self.plot(Yarray,Xarray)
+            self.message_data_processing.setText('Data processing...')
+            self.message_data_processing.repaint()
+            Yarray, Xarray, ch_names = self.data_proc.csv_File(self.fileselected, int(self.frequency.text()))
+            self.plot(Yarray,Xarray,ch_names)
 
     def changepage_addfile(self):
         self.windows_StackedWidget.setCurrentWidget(self.data_page)
+        self.message_data_processing.clear()
 
     def changepage_createExample(self):
         self.windows_StackedWidget.setCurrentWidget(self.example_page)
+        self.message_create_file.clear()
 
-    def plot(self, y, x):
+    def plot(self, y, x, ch_names):
         self.clear_layout()
-        self.canvas = FigureCanvas(Figure())
-        toolbar = NavigationToolbar(self.canvas, self)
+        pio.templates.default = "plotly_white"
+        step = 1. / len(y)
+        kwargs = dict(domain=[1 - step, 1], showticklabels=False, zeroline=False, showgrid=False)
+        layout = Layout(yaxis=YAxis(kwargs), showlegend=False)
+        traces = [Scatter(x=x, y=y[0])]
         container = QWidget()
         lay = QVBoxLayout(container)
-        lay.addWidget(toolbar)
-        for i in range(len(y)):
-            ax = self.canvas.figure.add_subplot(len(y), 1, (i + 1))
-            ax.plot(x,y[i])
-            ax.title.set_text('channel'+str(i+1))
-            ax.title.set_size(8)
-            self.canvas.figure.subplots_adjust(0.15, 0.02, 0.82, 0.98, 0, 0.35)
-            lay.addWidget(self.canvas)
-        self.scroll_layout.addWidget(container)
-        container.setMinimumHeight(200 * len(y))
-        self.windows_StackedWidget.setCurrentWidget(self.plot_page)
+        for ii in range(1, len(y)):
+            kwargs.update(domain=[1 - (ii + 1) * step, 1 - ii * step])
+            layout.update({'yaxis%d' % (ii + 1): YAxis(kwargs), 'showlegend': False})
+            traces.append(Scatter(x=x, y=y[ii], yaxis='y%d' % (ii + 1)))
 
+        annotations = [Annotation(x=-0.06, y=y[i][0], xref='paper', yref='y%d' % (i + 1),
+                                  text=ch_name, font=Font(size=9), showarrow=False)
+                       for i, ch_name in enumerate(ch_names)]
+        layout.update(annotations=annotations)
+        layout.update(autosize=True)
+        self.fig = Figure(data=traces, layout=layout)
+        html = '<html><body>'
+        html += plt.plot(self.fig, output_type='div', include_plotlyjs='cdn')
+        html += '</body></html>'
+        plot_widget = QWebEngineView()
+        plot_widget.setHtml(html)
+        lay.addWidget(plot_widget)
+        self.scroll_layout.addWidget(container)
+        container.setMinimumHeight(50 * len(y))
+        self.windows_StackedWidget.setCurrentWidget(self.plot_page)
+        print(len(y[0]))
+        print(len(x))
+        
     def clear_layout(self):
         if self.scroll_layout is not None:
             while self.scroll_layout.count():
@@ -149,6 +178,8 @@ class ScorepochsApp(QMainWindow):
         self.error_message_example.clear()
         if str(self.error_message_frequency_example.text()) == '' and str(self.error_message_time_example.text()) == ''\
                 and str(self.error_message_channels_example.text()) == '':
+            self.message_create_file.setText('Creating the file...')
+            self.message_create_file.repaint()
             with open('new.csv', 'w', newline='') as f:
                 compile_csv = csv.writer(f)
                 for i in range(int(self.number_channels_example.text())):
@@ -156,6 +187,7 @@ class ScorepochsApp(QMainWindow):
                     time_steps = np.arange(0, int(self.time_example.text()), (1 / int(self.frequency_example.text())))
                     y = ((i + 1) * 0.2) * np.sin(2 * np.pi * signal_frequency * time_steps)
                     compile_csv.writerow(y)
+            self.windows_StackedWidget.setCurrentWidget(self.file_created_page)
         else:
             self.error_message_example.setText('Enter the data correctly')
 
@@ -164,8 +196,16 @@ class Data_Processing:
 
     def csv_File(self, file_name, frequency):
         Yarray = np.loadtxt(file_name, delimiter = ',')
+        for i in range(len(Yarray)-1):
+            max = np.amax(Yarray[i])
+            min = np.amin(Yarray[i+1])
+            Yarray[i+1] = Yarray[i+1] + (max-min+0.5)
         Xarray = np.arange(0, size(Yarray[0])/frequency, 1/frequency)
-        return Yarray, Xarray
+        Ch_names = []
+        for i in range(len(Yarray)):
+            ch_name = 'channel ' + str(i+1)
+            Ch_names.append(ch_name)
+        return Yarray, Xarray, Ch_names
 
 app= QApplication(sys.argv)
 scorepochs = ScorepochsApp()
