@@ -1,6 +1,8 @@
 import csv
+import os.path
 import sys
 import numpy as np
+import glob
 from numpy import size
 from os.path import expanduser,abspath
 from PyQt5.QtWebEngineWidgets import QWebEngineView
@@ -137,13 +139,13 @@ class ScorepochsApp(QMainWindow):
         step = 1. / len(y)
         kwargs = dict(domain=[1 - step, 1], showticklabels=False, zeroline=False, showgrid=False)
         layout = Layout(yaxis=YAxis(kwargs), showlegend=False)
-        traces = [Scatter(x=x, y=y[0])]
+        traces = [Scatter(x=x, y=y[0], line=dict(color="#335BFF", width=0.8))]
         container = QWidget()
         lay = QVBoxLayout(container)
         for ii in range(1, len(y)):
             kwargs.update(domain=[1 - (ii + 1) * step, 1 - ii * step])
             layout.update({'yaxis%d' % (ii + 1): YAxis(kwargs), 'showlegend': False})
-            traces.append(Scatter(x=x, y=y[ii], yaxis='y%d' % (ii + 1)))
+            traces.append(Scatter(x=x, y=y[ii], yaxis='y%d' % (ii + 1), line=dict(color="#335BFF", width=0.8)))
 
         annotations = [Annotation(x=-0.06, y=y[i][0], xref='paper', yref='y%d' % (i + 1),
                                   text=ch_name, font=Font(size=9), showarrow=False)
@@ -152,13 +154,13 @@ class ScorepochsApp(QMainWindow):
         layout.update(autosize=True)
         self.fig = Figure(data=traces, layout=layout)
         self.fig.write_html('figure.html')
-        url = 'C:/Users/Utente/PycharmProjects/TesiScorepochs/figure.html'
+        url = os.path.abspath('figure.html')
         webView = QWebEngineView()
         html_map = QtCore.QUrl.fromLocalFile(url)
         webView.load(html_map)
         lay.addWidget(webView)
         self.scroll_layout.addWidget(container)
-        container.setMinimumHeight(50 * len(y))
+        container.setMinimumHeight(75 * len(y))
         self.windows_StackedWidget.setCurrentWidget(self.plot_page)
         
     def clear_layout(self):
