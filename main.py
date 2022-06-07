@@ -14,7 +14,7 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import plotly.io as pio
-from plotly.graph_objs import Layout,Scatter, Figure, Marker
+from plotly.graph_objs import Layout,Scatter, Figure, Marker, Scattergl
 from plotly.graph_objs.layout import YAxis, Annotation
 from plotly.graph_objs.layout.annotation import Font
 import plotly.offline as plt
@@ -120,7 +120,7 @@ class ScorepochsApp(QMainWindow):
         else:
             self.message_data_processing.setText('Data processing...')
             self.message_data_processing.repaint()
-            Yarray, Xarray, ch_names = self.data_proc.csv_File(self.fileselected, int(self.frequency.text()))
+            Yarray, Xarray, ch_names= self.data_proc.csv_File(self.fileselected, int(self.frequency.text()))
             self.plot(Yarray,Xarray,ch_names)
 
     def changepage_addfile(self):
@@ -151,17 +151,15 @@ class ScorepochsApp(QMainWindow):
         layout.update(annotations=annotations)
         layout.update(autosize=True)
         self.fig = Figure(data=traces, layout=layout)
-        html = '<html><body>'
-        html += plt.plot(self.fig, output_type='div', include_plotlyjs='cdn')
-        html += '</body></html>'
-        plot_widget = QWebEngineView()
-        plot_widget.setHtml(html)
-        lay.addWidget(plot_widget)
+        self.fig.write_html('figure.html')
+        url = 'C:/Users/Utente/PycharmProjects/TesiScorepochs/figure.html'
+        webView = QWebEngineView()
+        html_map = QtCore.QUrl.fromLocalFile(url)
+        webView.load(html_map)
+        lay.addWidget(webView)
         self.scroll_layout.addWidget(container)
         container.setMinimumHeight(50 * len(y))
         self.windows_StackedWidget.setCurrentWidget(self.plot_page)
-        print(len(y[0]))
-        print(len(x))
         
     def clear_layout(self):
         if self.scroll_layout is not None:
@@ -195,11 +193,8 @@ class ScorepochsApp(QMainWindow):
 class Data_Processing:
 
     def csv_File(self, file_name, frequency):
-        Yarray = np.loadtxt(file_name, delimiter = ',')
-        for i in range(len(Yarray)-1):
-            max = np.amax(Yarray[i])
-            min = np.amin(Yarray[i+1])
-            Yarray[i+1] = Yarray[i+1] + (max-min+0.5)
+        #Yarray = np.loadtxt(file_name, delimiter = ',')
+        Yarray = np.genfromtxt(file_name, delimiter=';', unpack=True)
         Xarray = np.arange(0, size(Yarray[0])/frequency, 1/frequency)
         Ch_names = []
         for i in range(len(Yarray)):
