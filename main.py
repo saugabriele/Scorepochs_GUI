@@ -2,7 +2,6 @@ import csv
 import os.path
 import sys
 import numpy as np
-import glob
 from numpy import size
 from os.path import expanduser,abspath
 from PyQt5.QtWebEngineWidgets import QWebEngineView
@@ -16,8 +15,8 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import plotly.io as pio
-from plotly.graph_objs import Layout,Scatter, Figure, Marker, Scattergl
-from plotly.graph_objs.layout import YAxis, Annotation
+from plotly.graph_objs import Layout,Scatter, Figure, Marker
+from plotly.graph_objs.layout import YAxis, Annotation,Shape
 from plotly.graph_objs.layout.annotation import Font
 import plotly.offline as plt
 
@@ -42,7 +41,7 @@ class ScorepochsApp(QMainWindow):
         self.error_message_filename = self.data_frame.findChild(QLabel, 'error_message_file')
         self.error_message_frequency = self.data_frame.findChild(QLabel, 'error_message_frequency')
         self.error_message = self.data_frame.findChild(QTextEdit, 'error_message')
-        self.add_plot = self.Menu_frame.findChild(QPushButton, 'plot_button')
+        self.plot_results_button = self.Menu_frame.findChild(QPushButton, 'plot_results_button')
         self.add_file = self.Menu_frame.findChild(QPushButton, 'addfile_button')
         self.example_button = self.Menu_frame.findChild(QPushButton, 'example_button')
         self.plot_scrollArea = self.Windows.findChild(QScrollArea, 'plot_scrollArea')
@@ -57,8 +56,10 @@ class ScorepochsApp(QMainWindow):
         self.message_create_file = self.Windows.findChild(QLabel, 'message_create_file')
         self.message_data_processing = self.Windows.findChild(QLabel, 'message_data_processing')
         self.create_file_button = self.Windows.findChild(QPushButton, 'create_file_button')
+        self.add_plot = self.Windows.findChild(QPushButton, 'plot_button')
         self.browse.clicked.connect(self.browseFile)
         self.add_plot.clicked.connect(self.get_List)
+        self.plot_results_button.clicked.connect(self.changepage_PlotResults)
         self.add_file.clicked.connect(self.changepage_addfile)
         self.example_button.clicked.connect(self.changepage_createExample)
         self.create_file_button.clicked.connect(self.create_example)
@@ -122,8 +123,8 @@ class ScorepochsApp(QMainWindow):
         else:
             self.message_data_processing.setText('Data processing...')
             self.message_data_processing.repaint()
-            Yarray, Xarray, ch_names= self.data_proc.csv_File(self.fileselected, int(self.frequency.text()))
-            self.plot(Yarray,Xarray,ch_names)
+            self.Yarray, self.Xarray, self.ch_names= self.data_proc.csv_File(self.fileselected, int(self.frequency.text()))
+            self.plot()
 
     def changepage_addfile(self):
         self.windows_StackedWidget.setCurrentWidget(self.data_page)
@@ -133,34 +134,47 @@ class ScorepochsApp(QMainWindow):
         self.windows_StackedWidget.setCurrentWidget(self.example_page)
         self.message_create_file.clear()
 
-    def plot(self, y, x, ch_names):
-        self.clear_layout()
+    def changepage_PlotResults(self):
+        self.windows_StackedWidget.setCurrentWidget(self.plot_page)
+
+    def createFile_html(self):
         pio.templates.default = "plotly_white"
-        step = 1. / len(y)
+        step = 1. / len(self.Yarray)
         kwargs = dict(domain=[1 - step, 1], showticklabels=False, zeroline=False, showgrid=False)
         layout = Layout(yaxis=YAxis(kwargs), showlegend=False)
-        traces = [Scatter(x=x, y=y[0], line=dict(color="#335BFF", width=0.8))]
+        self.traces = [Scatter(x=self.Xarray, y=self.Yarray[0], line=dict(color="#335BFF", width=0.8))]
+        for ii in range(1, len(self.Yarray)):
+            kwargs.update(domain=[1 - (ii + 1) * step, 1 - ii * step])
+            layout.update({'yaxis%d' % (ii + 1): YAxis(kwargs), 'showlegend': False ,
+                           'xaxis%d' % (ii + 1) : dict(showticklabels=False)})
+            self.traces.append(Scatter(x=self.Xarray, y=self.Yarray[ii],
+                                       yaxis='y%d' % (ii + 1), line=dict(color="#335BFF", width=0.8)))
+
+        self.annotations = [Annotation(x=-0.06, y=0, xref='paper', yref='y%d' % (i + 1),
+                                  text=ch_name, font=Font(size=9), showarrow=False)
+                       for i, ch_name in enumerate(self.ch_names)]
+        #annotations.append(Annotation(x=5, y=-0.05, yref='paper',
+                                  #text='ciao', font=Font(size=12), showarrow=False))
+        layout.update(annotations=self.annotations)
+        layout.update(autosize=False, width= 1080, height = 565, margin=dict(l=70, r=30, t=35, b=30))
+        self.fig = Figure(data=self.traces, layout=layout)
+        self.fig.update_layout(xaxis1_showticklabels=True, xaxis1_side= "top")
+        #self.fig.add_shape(
+            #Shape(type='rect', xref='x', yref='paper',x0=3, x1=10, y0 = -0.02, y1 = 1.02))
+        #self.fig.layout.shapes[0]['yref'] = 'paper'
+        self.fig.write_html('figure.html')
+
+    def plot(self):
+        self.clear_layout()
         container = QWidget()
         lay = QVBoxLayout(container)
-        for ii in range(1, len(y)):
-            kwargs.update(domain=[1 - (ii + 1) * step, 1 - ii * step])
-            layout.update({'yaxis%d' % (ii + 1): YAxis(kwargs), 'showlegend': False})
-            traces.append(Scatter(x=x, y=y[ii], yaxis='y%d' % (ii + 1), line=dict(color="#335BFF", width=0.8)))
-
-        annotations = [Annotation(x=-0.06, y=y[i][0], xref='paper', yref='y%d' % (i + 1),
-                                  text=ch_name, font=Font(size=9), showarrow=False)
-                       for i, ch_name in enumerate(ch_names)]
-        layout.update(annotations=annotations)
-        layout.update(autosize=True)
-        self.fig = Figure(data=traces, layout=layout)
-        self.fig.write_html('figure.html')
+        self.createFile_html()
         url = os.path.abspath('figure.html')
         webView = QWebEngineView()
         html_map = QtCore.QUrl.fromLocalFile(url)
         webView.load(html_map)
         lay.addWidget(webView)
         self.scroll_layout.addWidget(container)
-        container.setMinimumHeight(75 * len(y))
         self.windows_StackedWidget.setCurrentWidget(self.plot_page)
         
     def clear_layout(self):
@@ -208,3 +222,6 @@ app= QApplication(sys.argv)
 scorepochs = ScorepochsApp()
 scorepochs.show()
 sys.exit(app.exec_())
+
+
+

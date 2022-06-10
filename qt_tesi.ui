@@ -71,12 +71,12 @@ font: 75 12pt &quot;Noto Naskh Arabic UI&quot;;</string>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="plot_button">
+           <widget class="QPushButton" name="plot_results_button">
             <property name="styleSheet">
              <string notr="true">background-color: rgb(255, 255, 255);</string>
             </property>
             <property name="text">
-             <string>Plot</string>
+             <string>Plot Results</string>
             </property>
             <property name="icon">
              <iconset theme="2" resource="../../Desktop/Progetto/resources.qrc">
@@ -317,9 +317,9 @@ background-color: rgb(255, 255, 255);</string>
                 <widget class="QLabel" name="message_data_processing">
                  <property name="geometry">
                   <rect>
-                   <x>10</x>
+                   <x>100</x>
                    <y>110</y>
-                   <width>331</width>
+                   <width>271</width>
                    <height>21</height>
                   </rect>
                  </property>
@@ -329,6 +329,22 @@ color: rgb(85, 255, 0);</string>
                  </property>
                  <property name="text">
                   <string/>
+                 </property>
+                </widget>
+                <widget class="QPushButton" name="plot_button">
+                 <property name="geometry">
+                  <rect>
+                   <x>20</x>
+                   <y>110</y>
+                   <width>75</width>
+                   <height>23</height>
+                  </rect>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">background-color: rgb(255, 255, 255);</string>
+                 </property>
+                 <property name="text">
+                  <string>Plot</string>
                  </property>
                 </widget>
                </widget>
@@ -434,8 +450,8 @@ font: 10pt &quot;MS Shell Dlg 2&quot;;</string>
                     <rect>
                      <x>0</x>
                      <y>0</y>
-                     <width>444</width>
-                     <height>418</height>
+                     <width>41</width>
+                     <height>16</height>
                     </rect>
                    </property>
                   </widget>
