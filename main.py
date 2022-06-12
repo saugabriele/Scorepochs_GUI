@@ -25,7 +25,8 @@ class ScorepochsApp(QMainWindow):
         super(ScorepochsApp, self).__init__()
         loadUi('qt_tesi.ui', self)
         self.data_proc = Data_Processing()
-        self.fileselected =''
+        self.fileselected = ''
+        self.fig = None
         self.Windows = self.findChild(QFrame, 'windows_frame')
         self.Menu_frame = self.findChild(QFrame, 'menu_frame')
         self.windows_StackedWidget = self.findChild(QStackedWidget, 'windows_StackedWidget')
@@ -34,6 +35,7 @@ class ScorepochsApp(QMainWindow):
         self.start_page = self.Windows.findChild(QWidget, 'start_page')
         self.file_created_page = self.Windows.findChild(QWidget, 'file_created_page')
         self.example_page = self.Windows.findChild(QWidget, 'example_page')
+        self.plot_settings_page = self.Windows.findChild(QWidget, 'plot_settings_page')
         self.data_frame = self.data_page.findChild(QFrame, 'data_frame')
         self.browse = self.data_frame.findChild(QPushButton, 'browse_button')
         self.filename = self.data_frame.findChild(QLabel, 'filename')
@@ -44,6 +46,7 @@ class ScorepochsApp(QMainWindow):
         self.plot_results_button = self.Menu_frame.findChild(QPushButton, 'plot_results_button')
         self.add_file = self.Menu_frame.findChild(QPushButton, 'addfile_button')
         self.example_button = self.Menu_frame.findChild(QPushButton, 'example_button')
+        self.plot_settings_button = self.Menu_frame.findChild(QPushButton, 'plot_settings_button')
         self.plot_scrollArea = self.Windows.findChild(QScrollArea, 'plot_scrollArea')
         self.widget_scrollArea = self.Windows.findChild(QWidget, 'scrollAreaWidget')
         self.frequency_example = self.Windows.findChild(QLineEdit, 'frequency_example')
@@ -57,12 +60,17 @@ class ScorepochsApp(QMainWindow):
         self.message_data_processing = self.Windows.findChild(QLabel, 'message_data_processing')
         self.create_file_button = self.Windows.findChild(QPushButton, 'create_file_button')
         self.add_plot = self.Windows.findChild(QPushButton, 'plot_button')
+        self.time_dimension_epochs = self.Windows.findChild(QLineEdit, 'time_dimension_epochs')
+        self.update_plot_button = self.Windows.findChild(QPushButton, 'update_plot_button')
+        self.dimension_epochs_error_message = self.Windows.findChild(QLabel, 'dimension_epochs_error_message')
         self.browse.clicked.connect(self.browseFile)
         self.add_plot.clicked.connect(self.get_List)
         self.plot_results_button.clicked.connect(self.changepage_PlotResults)
+        self.plot_settings_button.clicked.connect(self.changepage_PlotSettings)
         self.add_file.clicked.connect(self.changepage_addfile)
         self.example_button.clicked.connect(self.changepage_createExample)
         self.create_file_button.clicked.connect(self.create_example)
+        self.update_plot_button.clicked.connect(self.update_Plot)
         self.windows_StackedWidget.setCurrentWidget(self.start_page)
         self.plot_scrollArea.setWidgetResizable(True)
         self.scroll_layout = QVBoxLayout(self.widget_scrollArea)
@@ -70,6 +78,7 @@ class ScorepochsApp(QMainWindow):
         self.frequency_example.editingFinished.connect(self.validating_frequency_example)
         self.number_channels_example.editingFinished.connect(self.validating_number_channels_example)
         self.time_example.editingFinished.connect(self.validating_time_example)
+        self.time_dimension_epochs.editingFinished.connect(self.validating_time_dimension_epochs)
 
     def browseFile(self):
         global fname
@@ -114,6 +123,16 @@ class ScorepochsApp(QMainWindow):
             self.error_message_time_example.setText(
                 'The sampling duration can have a value from 1 to 100 [s]\n')
 
+    def validating_time_dimension_epochs(self):
+        self.dimension_epochs_error_message.clear()
+        self.max = (1/int(self.frequency.text())) * (len(self.Yarray[0])-1)
+        min = (1/int(self.frequency.text()))
+        rule = QDoubleValidator(min, self.max , 10)
+        list = rule.validate(self.time_dimension_epochs.text(), 0)
+        if list[0] != 2:
+            self.dimension_epochs_error_message.setText(
+                'Value out of range or incorrect format.[Format ex. "10,00"]')
+
     def get_List(self):
         self.error_message.clear()
         if str(self.error_message_filename.text()) != '' or str(self.error_message_frequency.text()) != '' or \
@@ -137,6 +156,12 @@ class ScorepochsApp(QMainWindow):
     def changepage_PlotResults(self):
         self.windows_StackedWidget.setCurrentWidget(self.plot_page)
 
+    def changepage_PlotSettings(self):
+        if self.fig is not None:
+            self.windows_StackedWidget.setCurrentWidget(self.plot_settings_page)
+        else:
+            self.windows_StackedWidget.setCurrentWidget(self.data_page)
+
     def createFile_html(self):
         pio.templates.default = "plotly_white"
         step = 1. / len(self.Yarray)
@@ -153,23 +178,35 @@ class ScorepochsApp(QMainWindow):
         self.annotations = [Annotation(x=-0.06, y=0, xref='paper', yref='y%d' % (i + 1),
                                   text=ch_name, font=Font(size=9), showarrow=False)
                        for i, ch_name in enumerate(self.ch_names)]
-        #annotations.append(Annotation(x=5, y=-0.05, yref='paper',
-                                  #text='ciao', font=Font(size=12), showarrow=False))
         layout.update(annotations=self.annotations)
         layout.update(autosize=False, width= 1080, height = 565, margin=dict(l=70, r=30, t=35, b=30))
         self.fig = Figure(data=self.traces, layout=layout)
         self.fig.update_layout(xaxis1_showticklabels=True, xaxis1_side= "top")
-        #self.fig.add_shape(
-            #Shape(type='rect', xref='x', yref='paper',x0=3, x1=10, y0 = -0.02, y1 = 1.02))
-        #self.fig.layout.shapes[0]['yref'] = 'paper'
         self.fig.write_html('figure.html')
 
-    def plot(self):
+    def update_Plot(self):
+        i= 0
+        x = float(self.time_dimension_epochs.text())
+        offset = (1/int(self.frequency.text())/2)
+        fig = self.fig
+        name_html_file = 'update_figure.html'
+
+        while i <= ((self.max/x)-1):
+            fig.add_shape(Shape(type='rect', xref='x', yref='paper',x0=(x*i)+offset, x1=x*(i+1), y0 = -0.02, y1 = 1.003))
+            fig.layout.shapes[i]['yref'] = 'paper'
+            fig.add_annotation(Annotation(x=(x*i + x*(i+1))/2, y=-0.055, yref='paper',
+                                               text=('e'+str(i+1)), font=Font(size=12), showarrow=False))
+            i = i+1
+        fig.write_html('update_figure.html')
+        self.plot(name_html_file)
+
+    @QtCore.pyqtSlot()
+    def plot(self , name_html = 'figure.html'):
         self.clear_layout()
         container = QWidget()
         lay = QVBoxLayout(container)
         self.createFile_html()
-        url = os.path.abspath('figure.html')
+        url = os.path.abspath(name_html)
         webView = QWebEngineView()
         html_map = QtCore.QUrl.fromLocalFile(url)
         webView.load(html_map)
