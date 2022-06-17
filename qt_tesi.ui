@@ -460,8 +460,8 @@ font: 10pt &quot;MS Shell Dlg 2&quot;;</string>
                     <rect>
                      <x>0</x>
                      <y>0</y>
-                     <width>444</width>
-                     <height>418</height>
+                     <width>41</width>
+                     <height>16</height>
                     </rect>
                    </property>
                   </widget>
@@ -764,8 +764,20 @@ font: 10pt &quot;MS Shell Dlg 2&quot;;</string>
                  <enum>QFrame::Raised</enum>
                 </property>
                 <layout class="QVBoxLayout" name="verticalLayout_21">
-                 <item alignment="Qt::AlignTop">
+                 <item>
                   <widget class="QWidget" name="widget_6" native="true">
+                   <property name="minimumSize">
+                    <size>
+                     <width>0</width>
+                     <height>106</height>
+                    </size>
+                   </property>
+                   <property name="maximumSize">
+                    <size>
+                     <width>16777215</width>
+                     <height>106</height>
+                    </size>
+                   </property>
                    <layout class="QVBoxLayout" name="verticalLayout_22">
                     <item>
                      <widget class="QLabel" name="label_7">
@@ -788,7 +800,8 @@ font: 9pt &quot;MS Shell Dlg 2&quot;;</string>
                     <item>
                      <widget class="QLabel" name="dimension_epochs_error_message">
                       <property name="styleSheet">
-                       <string notr="true">color: rgb(255, 255, 255);</string>
+                       <string notr="true">
+color: rgb(255, 0, 0);</string>
                       </property>
                       <property name="text">
                        <string/>
@@ -802,6 +815,42 @@ font: 9pt &quot;MS Shell Dlg 2&quot;;</string>
                       </property>
                       <property name="text">
                        <string>Update Plot</string>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </widget>
+                 </item>
+                 <item alignment="Qt::AlignTop">
+                  <widget class="QWidget" name="widget_7" native="true">
+                   <layout class="QVBoxLayout" name="verticalLayout_23">
+                    <item>
+                     <widget class="QLabel" name="label_8">
+                      <property name="styleSheet">
+                       <string notr="true">color: rgb(255, 255, 255);</string>
+                      </property>
+                      <property name="text">
+                       <string>Here you can calculate the PSD of each epoch and see the results:</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QLabel" name="error_message_compute_PSD">
+                      <property name="styleSheet">
+                       <string notr="true">color: rgb(255, 0, 0);</string>
+                      </property>
+                      <property name="text">
+                       <string/>
+                      </property>
+                     </widget>
+                    </item>
+                    <item alignment="Qt::AlignLeft">
+                     <widget class="QPushButton" name="compute_PSD_button">
+                      <property name="styleSheet">
+                       <string notr="true">background-color: rgb(255, 255, 255);</string>
+                      </property>
+                      <property name="text">
+                       <string>Compute PSD</string>
                       </property>
                      </widget>
                     </item>

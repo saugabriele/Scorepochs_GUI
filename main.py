@@ -2,6 +2,7 @@ import csv
 import os.path
 import sys
 import numpy as np
+import pandas as pd
 from numpy import size
 from os.path import expanduser,abspath
 from PyQt5.QtWebEngineWidgets import QWebEngineView
@@ -19,6 +20,7 @@ from plotly.graph_objs import Layout,Scatter, Figure, Marker
 from plotly.graph_objs.layout import YAxis, Annotation,Shape
 from plotly.graph_objs.layout.annotation import Font
 import plotly.offline as plt
+from scipy import signal as sig
 
 class ScorepochsApp(QMainWindow):
     def __init__(self):
@@ -63,6 +65,8 @@ class ScorepochsApp(QMainWindow):
         self.time_dimension_epochs = self.Windows.findChild(QLineEdit, 'time_dimension_epochs')
         self.update_plot_button = self.Windows.findChild(QPushButton, 'update_plot_button')
         self.dimension_epochs_error_message = self.Windows.findChild(QLabel, 'dimension_epochs_error_message')
+        self.compute_PSD_button = self.Windows.findChild(QPushButton, 'compute_PSD_button')
+        self.error_message_compute_PSD = self.Windows.findChild(QLabel, 'error_message_compute_PSD')
         self.browse.clicked.connect(self.browseFile)
         self.add_plot.clicked.connect(self.get_List)
         self.plot_results_button.clicked.connect(self.changepage_PlotResults)
@@ -71,6 +75,7 @@ class ScorepochsApp(QMainWindow):
         self.example_button.clicked.connect(self.changepage_createExample)
         self.create_file_button.clicked.connect(self.create_example)
         self.update_plot_button.clicked.connect(self.update_Plot)
+        self.compute_PSD_button.clicked.connect(self.compute_Power_spectrum)
         self.windows_StackedWidget.setCurrentWidget(self.start_page)
         self.plot_scrollArea.setWidgetResizable(True)
         self.scroll_layout = QVBoxLayout(self.widget_scrollArea)
@@ -124,6 +129,7 @@ class ScorepochsApp(QMainWindow):
                 'The sampling duration can have a value from 1 to 100 [s]\n')
 
     def validating_time_dimension_epochs(self):
+        self.error_message_compute_PSD.clear()
         self.dimension_epochs_error_message.clear()
         self.max = (1/int(self.frequency.text())) * (len(self.Yarray[0])-1)
         min = (1/int(self.frequency.text()))
@@ -176,8 +182,8 @@ class ScorepochsApp(QMainWindow):
                                        yaxis='y%d' % (ii + 1), line=dict(color="#335BFF", width=0.8)))
 
         self.annotations = [Annotation(x=-0.06, y=0, xref='paper', yref='y%d' % (i + 1),
-                                  text=ch_name, font=Font(size=9), showarrow=False)
-                       for i, ch_name in enumerate(self.ch_names)]
+                                       text=ch_name, font=Font(size=9), showarrow=False)
+                            for i, ch_name in enumerate(self.ch_names)]
         layout.update(annotations=self.annotations)
         layout.update(autosize=False, width= 1080, height = 565, margin=dict(l=70, r=30, t=35, b=30))
         self.fig = Figure(data=self.traces, layout=layout)
@@ -185,20 +191,65 @@ class ScorepochsApp(QMainWindow):
         self.fig.write_html('figure.html')
 
     def update_Plot(self):
-        i= 0
-        x = float(self.time_dimension_epochs.text())
-        offset = (1/int(self.frequency.text())/2)
-        fig = self.fig
-        name_html_file = 'update_figure.html'
+        if str(self.dimension_epochs_error_message.text()) != '':
+            return
+        else:
+            i= 0
+            x = float(self.time_dimension_epochs.text())
+            offset = (1/int(self.frequency.text()))
+            self.max = (1 / int(self.frequency.text())) * (len(self.Yarray[0]) - 1)
+            fig = self.fig
+            name_html_file = 'update_figure.html'
 
-        while i <= ((self.max/x)-1):
-            fig.add_shape(Shape(type='rect', xref='x', yref='paper',x0=(x*i)+offset, x1=x*(i+1), y0 = -0.02, y1 = 1.003))
-            fig.layout.shapes[i]['yref'] = 'paper'
-            fig.add_annotation(Annotation(x=(x*i + x*(i+1))/2, y=-0.055, yref='paper',
-                                               text=('e'+str(i+1)), font=Font(size=12), showarrow=False))
-            i = i+1
-        fig.write_html('update_figure.html')
-        self.plot(name_html_file)
+            while i <= ((self.max/x)-1):
+                fig.add_shape(Shape(type='rect', xref='x', yref='paper',x0=(x*i)+(offset*i), x1=x*(i+1)+(offset*i), y0 = -0.02, y1 = 1.003))
+                fig.layout.shapes[i]['yref'] = 'paper'
+                fig.add_annotation(Annotation(x=(x*i + x*(i+1))/2, y=-0.055, yref='paper',
+                                                   text=('e'+str(i+1)), font=Font(size=12), showarrow=False))
+                i = i+1
+            fig.write_html('update_figure.html')
+            self.plot(name_html_file)
+
+    def compute_Power_spectrum(self):
+        if str(self.dimension_epochs_error_message.text()) != '' or self.time_dimension_epochs.text() == '':
+            self.error_message_compute_PSD.setText('First you have to define the time dimension of each epoch.')
+        else:
+            epLen = round(float(self.time_dimension_epochs.text()) * int(self.frequency.text()))
+            dataLen = len(self.Yarray[0])
+            nCh = len(self.Yarray)
+            idx_ep = range(0, int(dataLen - epLen + 1), int(epLen + 1))
+            nEp = len(idx_ep)
+            traces_update = []
+            name_html_file = 'update_figure.html'
+            pio.templates.default = "plotly_white"
+            x_step = 1. / nEp
+            y_step = 1. / nCh
+            y_kwargs = dict(domain=[1 - y_step, 1], showticklabels=False, zeroline=False, showgrid=False)
+            x_kwargs = dict(domain=[1 - x_step, 1], showticklabels=False)
+            layout = Layout(yaxis=YAxis(y_kwargs), showlegend=False, xaxis= x_kwargs )
+
+            for e in range(nEp):
+                x_kwargs.update(domain=[0 + (e) * x_step, 0 + (e+1) * x_step -0.02])
+                for c in range(nCh):
+                    y_kwargs.update(domain=[1 - (c + 1) * y_step, 1 - c * y_step])
+                    layout.update({'yaxis%d' % (c + 1): YAxis(y_kwargs), 'showlegend': False,
+                                   'xaxis%d' % (e + 1): x_kwargs})
+                    epoch = self.Yarray[c][idx_ep[e]:idx_ep[e] + epLen]
+                    # compute power spectrum
+                    f, aux_pxx = sig.welch(epoch.T, fs = int(self.frequency.text()), window='hamming', nperseg=round(epLen / 8),
+                                           detrend=False)
+                    traces_update.append(Scatter(x=f, y=aux_pxx, yaxis='y%d' % (c + 1),
+                                                 xaxis= 'x%d' % (e + 1), line=dict(color="#335BFF", width=0.8)))
+            annotations = [Annotation(x=-0.06, y= 0, xref='paper', yref='y%d' % (i + 1),
+                                           text=ch_name, font=Font(size=9), showarrow=False)
+                                for i, ch_name in enumerate(self.ch_names)]
+            layout.update(annotations=annotations)
+            layout.update(autosize=False, width=1080, height=565, margin=dict(l=70, r=30, t=35, b=30))
+            fig = Figure(data=traces_update, layout=layout)
+            fig.update_xaxes(type = 'log')
+            fig.write_html(name_html_file)
+            self.plot(name_html_file)
+
 
     @QtCore.pyqtSlot()
     def plot(self , name_html = 'figure.html'):
@@ -246,8 +297,10 @@ class ScorepochsApp(QMainWindow):
 class Data_Processing:
 
     def csv_File(self, file_name, frequency):
-        #Yarray = np.loadtxt(file_name, delimiter = ',')
-        Yarray = np.genfromtxt(file_name, delimiter=';', unpack=True)
+        #table=pd.read_csv(file_name ,sep=';',dtype=float,header=None).T
+        #Yarray=table.values
+        Yarray_pre = np.genfromtxt(file_name, delimiter=';', unpack=True)
+        Yarray = np.nan_to_num(Yarray_pre)
         Xarray = np.arange(0, size(Yarray[0])/frequency, 1/frequency)
         Ch_names = []
         for i in range(len(Yarray)):
@@ -259,6 +312,3 @@ app= QApplication(sys.argv)
 scorepochs = ScorepochsApp()
 scorepochs.show()
 sys.exit(app.exec_())
-
-
-
