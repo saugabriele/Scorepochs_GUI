@@ -16,11 +16,14 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import plotly.io as pio
-from plotly.graph_objs import Layout,Scatter, Figure, Marker
+from plotly.graph_objs import Layout,Scatter, Figure, Marker, Heatmap
 from plotly.graph_objs.layout import YAxis, Annotation,Shape
 from plotly.graph_objs.layout.annotation import Font
+from plotly.subplots import make_subplots
 import plotly.offline as plt
 from scipy import signal as sig
+from scipy import stats as st
+from scorepochs_py import _spectrum_parameters
 
 class ScorepochsApp(QMainWindow):
     def __init__(self):
@@ -229,7 +232,7 @@ class ScorepochsApp(QMainWindow):
             layout = Layout(yaxis=YAxis(y_kwargs), showlegend=False, xaxis= x_kwargs )
 
             for e in range(nEp):
-                x_kwargs.update(domain=[0 + (e) * x_step, 0 + (e+1) * x_step -0.02])
+                x_kwargs.update(domain=[0 + (e) * x_step, 0 + (e+1) * x_step -0.01])
                 for c in range(nCh):
                     y_kwargs.update(domain=[1 - (c + 1) * y_step, 1 - c * y_step])
                     layout.update({'yaxis%d' % (c + 1): YAxis(y_kwargs), 'showlegend': False,
@@ -249,7 +252,41 @@ class ScorepochsApp(QMainWindow):
             fig.update_xaxes(type = 'log')
             fig.write_html(name_html_file)
             self.plot(name_html_file)
+            self.compute_Corr_matrix()
 
+    def compute_Corr_matrix(self):
+        self.data = []
+        name_html_file = 'update_figure.html'
+        epLen = round(float(self.time_dimension_epochs.text()) * int(self.frequency.text()))
+        dataLen = len(self.Yarray[0])
+        nCh = len(self.Yarray)
+        idx_ep = range(0, int(dataLen - epLen + 1), int(epLen + 1))
+        nEp = len(idx_ep)
+        epoch = np.zeros((nEp, nCh, epLen))
+        freqRange = [10,40]
+        for e in range(nEp):
+            for c in range(nCh):
+                epoch[e][c][0:epLen] = self.Yarray[c][idx_ep[e]:idx_ep[e] + epLen]
+                f, aux_pxx = sig.welch(epoch[e][c].T, fs = int(self.frequency.text()), window='hamming', nperseg=round(epLen / 8),
+                                       detrend=False)
+                if c == 0 and e == 0:  # The various parameters are obtained in the first interation
+                    pxx, idx_min, idx_max, nFreq = _spectrum_parameters(f, freqRange, aux_pxx, nEp, nCh)
+                pxx[e][c] = aux_pxx[idx_min:idx_max + 1]
+        pxxXch = np.zeros((nEp, idx_max - idx_min + 1))
+        for c in range(nCh):
+            for e in range(nEp):
+                pxxXch[e] = pxx[e][c]
+            score_ch, p = st.spearmanr(pxxXch, axis=1)
+            self.data.append(score_ch)
+        fig = make_subplots(4, 16, subplot_titles=[ch_name for i, ch_name in enumerate(self.ch_names)])
+        channel=0
+        for i in range(4):
+            for j in range(16):
+                fig.add_trace(Heatmap(z=self.data[channel], showscale= (i==0 and j==0)), i+1, j+1)
+                channel =  channel + 1
+        fig.update_annotations(font_size = 9)
+        fig.write_html(name_html_file)
+        self.plot(name_html_file)
 
     @QtCore.pyqtSlot()
     def plot(self , name_html = 'figure.html'):
