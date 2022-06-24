@@ -23,7 +23,7 @@ from plotly.subplots import make_subplots
 import plotly.offline as plt
 from scipy import signal as sig
 from scipy import stats as st
-from scorepochs_py import _spectrum_parameters
+from scorepochs_py import _spectrum_parameters,scorEpochs
 
 class ScorepochsApp(QMainWindow):
     def __init__(self):
@@ -32,6 +32,7 @@ class ScorepochsApp(QMainWindow):
         self.data_proc = Data_Processing()
         self.fileselected = ''
         self.fig = None
+        self.f_len = 0
         self.Windows = self.findChild(QFrame, 'windows_frame')
         self.Menu_frame = self.findChild(QFrame, 'menu_frame')
         self.windows_StackedWidget = self.findChild(QStackedWidget, 'windows_StackedWidget')
@@ -70,6 +71,14 @@ class ScorepochsApp(QMainWindow):
         self.dimension_epochs_error_message = self.Windows.findChild(QLabel, 'dimension_epochs_error_message')
         self.compute_PSD_button = self.Windows.findChild(QPushButton, 'compute_PSD_button')
         self.error_message_compute_PSD = self.Windows.findChild(QLabel, 'error_message_compute_PSD')
+        self.compute_corr_matrix_button = self.Windows.findChild(QPushButton, 'compute_corr_matrix_button')
+        self.compute_score_vector_button = self.Windows.findChild(QPushButton, 'compute_score_vector_button')
+        self.compute_scorepochs_button = self.Windows.findChild(QPushButton, 'compute_scorepochs_button')
+        self.min_freqRange = self.Windows.findChild(QLineEdit, 'min_freqRange')
+        self.max_freqRange = self.Windows.findChild(QLineEdit, 'max_freqRange')
+        self.scorepochs_error_message = self.Windows.findChild(QLabel, 'scorepochs_error_message')
+        self.maxfreqRange_error_message = self.Windows.findChild(QLabel, 'maxfreqRange_error_message')
+        self.minfreqRange_error_message = self.Windows.findChild(QLabel, 'minfreqRange_error_message')
         self.browse.clicked.connect(self.browseFile)
         self.add_plot.clicked.connect(self.get_List)
         self.plot_results_button.clicked.connect(self.changepage_PlotResults)
@@ -79,6 +88,9 @@ class ScorepochsApp(QMainWindow):
         self.create_file_button.clicked.connect(self.create_example)
         self.update_plot_button.clicked.connect(self.update_Plot)
         self.compute_PSD_button.clicked.connect(self.compute_Power_spectrum)
+        self.compute_corr_matrix_button.clicked.connect(self.compute_Corr_matrix)
+        self.compute_score_vector_button.clicked.connect(self.compute_scoreVector)
+        self.compute_scorepochs_button.clicked.connect(self.compute_scorepochs)
         self.windows_StackedWidget.setCurrentWidget(self.start_page)
         self.plot_scrollArea.setWidgetResizable(True)
         self.scroll_layout = QVBoxLayout(self.widget_scrollArea)
@@ -87,6 +99,8 @@ class ScorepochsApp(QMainWindow):
         self.number_channels_example.editingFinished.connect(self.validating_number_channels_example)
         self.time_example.editingFinished.connect(self.validating_time_example)
         self.time_dimension_epochs.editingFinished.connect(self.validating_time_dimension_epochs)
+        self.min_freqRange.editingFinished.connect(self.validating_min_freqRange)
+        self.max_freqRange.editingFinished.connect(self.validating_max_freqRange)
 
     def browseFile(self):
         global fname
@@ -141,6 +155,29 @@ class ScorepochsApp(QMainWindow):
         if list[0] != 2:
             self.dimension_epochs_error_message.setText(
                 'Value out of range or incorrect format.[Format ex. "10,00"]')
+
+    def validating_min_freqRange(self):
+        self.minfreqRange_error_message.clear()
+        self.scorepochs_error_message.clear()
+        if self.f_len != 0:
+            rule = QDoubleValidator(0, int(((self.f_len-1) * 1.6) - 1), 0)
+            list = rule.validate(self.min_freqRange.text(), 0)
+            if list[0] != 2:
+                self.minfreqRange_error_message.setText('Min value: Range(0 : %d)' % int(((self.f_len-1) * 1.6) - 1))
+        else:
+            self.scorepochs_error_message.setText('First compute the Power Spectrum')
+
+    def validating_max_freqRange(self):
+        self.maxfreqRange_error_message.clear()
+        self.scorepochs_error_message.clear()
+        if self.f_len != 0:
+            rule = QDoubleValidator(0, int((self.f_len-1) * 1.6), 0)
+            list = rule.validate(self.max_freqRange.text(), 0)
+            if list[0] != 2:
+                self.maxfreqRange_error_message.setText('Max value: Range(0 : %d)' % int(((self.f_len-1) * 1.6)))
+        else:
+            self.scorepochs_error_message.setText('First compute the Power Spectrum')
+
 
     def get_List(self):
         self.error_message.clear()
@@ -217,6 +254,7 @@ class ScorepochsApp(QMainWindow):
         if str(self.dimension_epochs_error_message.text()) != '' or self.time_dimension_epochs.text() == '':
             self.error_message_compute_PSD.setText('First you have to define the time dimension of each epoch.')
         else:
+            self.scorepochs_error_message.clear()
             epLen = round(float(self.time_dimension_epochs.text()) * int(self.frequency.text()))
             dataLen = len(self.Yarray[0])
             nCh = len(self.Yarray)
@@ -241,6 +279,7 @@ class ScorepochsApp(QMainWindow):
                     # compute power spectrum
                     f, aux_pxx = sig.welch(epoch.T, fs = int(self.frequency.text()), window='hamming', nperseg=round(epLen / 8),
                                            detrend=False)
+                    self.f_len = len(f)
                     traces_update.append(Scatter(x=f, y=aux_pxx, yaxis='y%d' % (c + 1),
                                                  xaxis= 'x%d' % (e + 1), line=dict(color="#335BFF", width=0.8)))
             annotations = [Annotation(x=-0.06, y= 0, xref='paper', yref='y%d' % (i + 1),
@@ -252,81 +291,102 @@ class ScorepochsApp(QMainWindow):
             fig.update_xaxes(type = 'log')
             fig.write_html(name_html_file)
             self.plot(name_html_file)
-            self.compute_scoreVector()
-
 
     def compute_Corr_matrix(self):
-        self.data = []
-        name_html_file = 'update_figure.html'
-        epLen = round(float(self.time_dimension_epochs.text()) * int(self.frequency.text()))
-        dataLen = len(self.Yarray[0])
-        nCh = len(self.Yarray)
-        idx_ep = range(0, int(dataLen - epLen + 1), int(epLen + 1))
-        nEp = len(idx_ep)
-        epoch = np.zeros((nEp, nCh, epLen))
-        freqRange = [10,40]
-        for e in range(nEp):
-            for c in range(nCh):
-                epoch[e][c][0:epLen] = self.Yarray[c][idx_ep[e]:idx_ep[e] + epLen]
-                f, aux_pxx = sig.welch(epoch[e][c].T, fs = int(self.frequency.text()), window='hamming', nperseg=round(epLen / 8),
-                                       detrend=False)
-                if c == 0 and e == 0:  # The various parameters are obtained in the first interation
-                    pxx, idx_min, idx_max, nFreq = _spectrum_parameters(f, freqRange, aux_pxx, nEp, nCh)
-                pxx[e][c] = aux_pxx[idx_min:idx_max + 1]
-        pxxXch = np.zeros((nEp, idx_max - idx_min + 1))
-        for c in range(nCh):
-            for e in range(nEp):
-                pxxXch[e] = pxx[e][c]
-            score_ch, p = st.spearmanr(pxxXch, axis=1)
-            self.data.append(score_ch)
-        fig = make_subplots(4, 16, subplot_titles=[ch_name for i, ch_name in enumerate(self.ch_names)])
-        channel=0
-        for i in range(4):
-            for j in range(16):
-                fig.add_trace(Heatmap(z=self.data[channel], showscale= True, zmin=0, zmax=1, colorscale = 'Viridis'), i+1, j+1)
-                channel =  channel + 1
-        fig.update_annotations(font_size = 9)
-        fig.update_layout(autosize = False, width= 1080, height = 565)
-        fig.write_html(name_html_file)
-        self.plot(name_html_file)
+        if self.min_freqRange.text() != '' and self.max_freqRange.text() != '' \
+                and int(self.min_freqRange.text()) >= int(self.max_freqRange.text()):
+            self.scorepochs_error_message.setText('Min value in frequency is bigger than max value!')
+        else:
+            if self.scorepochs_error_message.text() == '' and self.minfreqRange_error_message.text() == '' \
+                    and self.maxfreqRange_error_message.text() == '' and self.min_freqRange.text() != '' \
+                    and self.max_freqRange.text() != '':
+                self.data = []
+                name_html_file = 'update_figure.html'
+                epLen = round(float(self.time_dimension_epochs.text()) * int(self.frequency.text()))
+                dataLen = len(self.Yarray[0])
+                nCh = len(self.Yarray)
+                idx_ep = range(0, int(dataLen - epLen + 1), int(epLen + 1))
+                nEp = len(idx_ep)
+                epoch = np.zeros((nEp, nCh, epLen))
+                freqRange = [int(self.min_freqRange.text()),int(self.max_freqRange.text())]
+                for e in range(nEp):
+                    for c in range(nCh):
+                        epoch[e][c][0:epLen] = self.Yarray[c][idx_ep[e]:idx_ep[e] + epLen]
+                        f, aux_pxx = sig.welch(epoch[e][c].T, fs = int(self.frequency.text()), window='hamming', nperseg=round(epLen / 8),
+                                               detrend=False)
+                        if c == 0 and e == 0:  # The various parameters are obtained in the first interation
+                            pxx, idx_min, idx_max, nFreq = _spectrum_parameters(f, freqRange, aux_pxx, nEp, nCh)
+                        pxx[e][c] = aux_pxx[idx_min:idx_max + 1]
+                pxxXch = np.zeros((nEp, idx_max - idx_min + 1))
+                for c in range(nCh):
+                    for e in range(nEp):
+                        pxxXch[e] = pxx[e][c]
+                    score_ch, p = st.spearmanr(pxxXch, axis=1)
+                    self.data.append(score_ch)
+                fig = make_subplots(4, 16, subplot_titles=[ch_name for i, ch_name in enumerate(self.ch_names)])
+                channel=0
+                for i in range(4):
+                    for j in range(16):
+                        fig.add_trace(Heatmap(z=self.data[channel], showscale= True, zmin=0, zmax=1, colorscale = 'Viridis'), i+1, j+1)
+                        channel =  channel + 1
+                fig.update_annotations(font_size = 9)
+                fig.update_layout(autosize = False, width= 1080, height = 565)
+                fig.write_html(name_html_file)
+                self.plot(name_html_file)
+            else:
+                self.scorepochs_error_message.setText('Insert value correctly!')
 
     def compute_scoreVector(self):
-        name_html_file = 'update_figure.html'
-        epLen = round(float(self.time_dimension_epochs.text()) * int(self.frequency.text()))
-        dataLen = len(self.Yarray[0])
-        nCh = len(self.Yarray)
-        idx_ep = range(0, int(dataLen - epLen + 1), int(epLen + 1))
-        nEp = len(idx_ep)
-        epoch = np.zeros((nEp, nCh, epLen))
-        freqRange = [10, 40]
-        for e in range(nEp):
-            for c in range(nCh):
-                epoch[e][c][0:epLen] = self.Yarray[c][idx_ep[e]:idx_ep[e] + epLen]
-                f, aux_pxx = sig.welch(epoch[e][c].T, fs=int(self.frequency.text()), window='hamming',
-                                       nperseg=round(epLen / 8),
-                                       detrend=False)
-                if c == 0 and e == 0:  # The various parameters are obtained in the first interation
-                    pxx, idx_min, idx_max, nFreq = _spectrum_parameters(f, freqRange, aux_pxx, nEp, nCh)
-                pxx[e][c] = aux_pxx[idx_min:idx_max + 1]
-        pxxXch = np.zeros((nEp, idx_max - idx_min + 1))
-        score_chXep = np.zeros((nCh, nEp))
-        for c in range(nCh):
-            for e in range(nEp):
-                pxxXch[e] = pxx[e][c]
-            score_ch, p = st.spearmanr(pxxXch, axis=1)
-            score_chXep[c][0:nEp] += np.mean(score_ch, axis=1)
-        fig = make_subplots(8, 8, subplot_titles=[ch_name for i, ch_name in enumerate(self.ch_names)])
-        channel = 0
-        for i in range(8):
-            for j in range(8):
-                fig.add_trace(Heatmap(z=[score_chXep[channel]],showscale= True, zmin=0, zmax=1, colorscale = 'Viridis'), i + 1, j + 1)
-                channel = channel + 1
-        fig.update_annotations(font_size=9)
-        fig.update_xaxes(showticklabels=False)
-        fig.update_yaxes(showticklabels=False)
-        fig.update_layout(autosize=False, width=1080, height=565)
-        fig.write_html(name_html_file)
-        self.plot(name_html_file)
+        if self.min_freqRange.text() != '' and self.max_freqRange.text() != '' \
+                and int(self.min_freqRange.text()) >= int(self.max_freqRange.text()):
+            self.scorepochs_error_message.setText('Min value in frequency is bigger than max value!')
+        else:
+            if self.scorepochs_error_message.text() == '' and self.minfreqRange_error_message.text() == '' \
+                    and self.maxfreqRange_error_message.text()  == '' and self.min_freqRange.text() != '' \
+                    and self.max_freqRange.text() != '':
+                name_html_file = 'update_figure.html'
+                idx_best, epoch, scores, scoreVector = scorEpochs(
+                    {'freqRange': [int(self.min_freqRange.text()),int(self.max_freqRange.text())],
+                     'fs': int(self.frequency.text()),
+                     'windowL': int(self.time_dimension_epochs.text())}, self.Yarray)
+                fig = make_subplots(8, 8, subplot_titles=[ch_name for i, ch_name in enumerate(self.ch_names)])
+                channel = 0
+                for i in range(8):
+                    for j in range(8):
+                        fig.add_trace(Heatmap(z=[scoreVector[channel]], showscale=True, zmin=0, zmax=1, colorscale='Viridis'), i + 1,
+                                      j + 1)
+                        channel = channel + 1
+                fig.update_annotations(font_size=9)
+                fig.update_xaxes(showticklabels=False)
+                fig.update_yaxes(showticklabels=False)
+                fig.update_layout(autosize=False, width=1080, height=565)
+                fig.write_html(name_html_file)
+                self.plot(name_html_file)
+            else:
+                self.scorepochs_error_message.setText('Insert value correctly!')
+
+    def compute_scorepochs(self):
+        if self.min_freqRange.text() != '' and self.max_freqRange.text() != '' \
+                and int(self.min_freqRange.text()) >= int(self.max_freqRange.text()):
+            self.scorepochs_error_message.setText('Min value in frequency is bigger than max value!')
+        else:
+            if self.scorepochs_error_message.text() == '' and self.minfreqRange_error_message.text() == '' \
+                    and self.maxfreqRange_error_message.text()  == '' and self.min_freqRange.text() != '' \
+                    and self.max_freqRange.text() != '':
+                name_html_file = 'update_figure.html'
+                idx_best, epoch, scores, scoreVector = scorEpochs(
+                    {'freqRange': [int(self.min_freqRange.text()),int(self.max_freqRange.text())],
+                     'fs': int(self.frequency.text()),
+                     'windowL': int(self.time_dimension_epochs.text())}, self.Yarray)
+                fig = Figure(data = [Heatmap(z=[scores], showscale=True, zmin=0, zmax=1, colorscale='Viridis')],
+                             layout=Layout(title= 'Scorepochs results:'))
+                fig.update_xaxes(showticklabels=False)
+                fig.update_yaxes(showticklabels=False)
+                fig.update_layout(autosize=False, width=1080, height=565)
+                fig.write_html(name_html_file)
+                self.plot(name_html_file)
+            else:
+                self.scorepochs_error_message.setText('Insert value correctly!')
 
 
     @QtCore.pyqtSlot()
