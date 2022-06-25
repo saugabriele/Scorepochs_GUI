@@ -3,12 +3,13 @@ import os.path
 import sys
 import numpy as np
 import pandas as pd
+import copy
 from numpy import size
-from os.path import expanduser,abspath
+from os.path import expanduser, abspath
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5 import QtWidgets, uic, QtCore
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFrame, QStackedWidget, QWidget, QPushButton, QLineEdit,\
-    QFileDialog,QLabel,QTextEdit,QVBoxLayout,QScrollArea,QRadioButton
+    QFileDialog, QLabel, QTextEdit, QVBoxLayout, QScrollArea, QRadioButton
 from PyQt5.uic import loadUi
 from PyQt5.QtGui import QDoubleValidator, QValidator
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -16,7 +17,7 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import plotly.io as pio
-from plotly.graph_objs import Layout,Scatter, Figure, Marker, Heatmap
+from plotly.graph_objs import Layout, Scatter, Figure, Marker, Heatmap
 from plotly.graph_objs.layout import YAxis, Annotation,Shape
 from plotly.graph_objs.layout.annotation import Font
 from plotly.subplots import make_subplots
@@ -30,6 +31,7 @@ class ScorepochsApp(QMainWindow):
         super(ScorepochsApp, self).__init__()
         loadUi('qt_tesi.ui', self)
         self.data_proc = Data_Processing()
+        self.write_html = Write_html()
         self.fileselected = ''
         self.fig = None
         self.f_len = 0
@@ -189,6 +191,7 @@ class ScorepochsApp(QMainWindow):
             self.message_data_processing.setText('Data processing...')
             self.message_data_processing.repaint()
             self.Yarray, self.Xarray, self.ch_names= self.data_proc.csv_File(self.fileselected, int(self.frequency.text()))
+            self.fig = self.write_html.create_file_html(self.Yarray, self.Xarray, self.ch_names)
             self.plot()
 
     def changepage_addfile(self):
@@ -208,88 +211,23 @@ class ScorepochsApp(QMainWindow):
         else:
             self.windows_StackedWidget.setCurrentWidget(self.data_page)
 
-    def createFile_html(self):
-        pio.templates.default = "plotly_white"
-        step = 1. / len(self.Yarray)
-        kwargs = dict(domain=[1 - step, 1], showticklabels=False, zeroline=False, showgrid=False)
-        layout = Layout(yaxis=YAxis(kwargs), showlegend=False)
-        self.traces = [Scatter(x=self.Xarray, y=self.Yarray[0], line=dict(color="#335BFF", width=0.8))]
-        for ii in range(1, len(self.Yarray)):
-            kwargs.update(domain=[1 - (ii + 1) * step, 1 - ii * step])
-            layout.update({'yaxis%d' % (ii + 1): YAxis(kwargs), 'showlegend': False ,
-                           'xaxis%d' % (ii + 1) : dict(showticklabels=False)})
-            self.traces.append(Scatter(x=self.Xarray, y=self.Yarray[ii],
-                                       yaxis='y%d' % (ii + 1), line=dict(color="#335BFF", width=0.8)))
-
-        self.annotations = [Annotation(x=-0.06, y=0, xref='paper', yref='y%d' % (i + 1),
-                                       text=ch_name, font=Font(size=9), showarrow=False)
-                            for i, ch_name in enumerate(self.ch_names)]
-        layout.update(annotations=self.annotations)
-        layout.update(autosize=False, width= 1080, height = 565, margin=dict(l=70, r=30, t=35, b=30))
-        self.fig = Figure(data=self.traces, layout=layout)
-        self.fig.update_layout(xaxis1_showticklabels=True, xaxis1_side= "top")
-        self.fig.write_html('figure.html')
-
     def update_Plot(self):
         if str(self.dimension_epochs_error_message.text()) != '':
             return
         else:
-            i= 0
-            x = float(self.time_dimension_epochs.text())
-            offset = (1/int(self.frequency.text()))
-            self.max = (1 / int(self.frequency.text())) * (len(self.Yarray[0]) - 1)
-            fig = self.fig
-            name_html_file = 'update_figure.html'
+            self.write_html.update_Plot(self.time_dimension_epochs.text(),self.frequency.text(),self.Yarray,self.fig)
+            self.plot('update_figure.html')
 
-            while i <= ((self.max/x)-1):
-                fig.add_shape(Shape(type='rect', xref='x', yref='paper',x0=(x*i)+(offset*i), x1=x*(i+1)+(offset*i), y0 = -0.02, y1 = 1.003))
-                fig.layout.shapes[i]['yref'] = 'paper'
-                fig.add_annotation(Annotation(x=(x*i + x*(i+1))/2, y=-0.055, yref='paper',
-                                                   text=('e'+str(i+1)), font=Font(size=12), showarrow=False))
-                i = i+1
-            fig.write_html('update_figure.html')
-            self.plot(name_html_file)
 
     def compute_Power_spectrum(self):
         if str(self.dimension_epochs_error_message.text()) != '' or self.time_dimension_epochs.text() == '':
             self.error_message_compute_PSD.setText('First you have to define the time dimension of each epoch.')
         else:
             self.scorepochs_error_message.clear()
-            epLen = round(float(self.time_dimension_epochs.text()) * int(self.frequency.text()))
-            dataLen = len(self.Yarray[0])
-            nCh = len(self.Yarray)
-            idx_ep = range(0, int(dataLen - epLen + 1), int(epLen + 1))
-            nEp = len(idx_ep)
-            traces_update = []
             name_html_file = 'update_figure.html'
-            pio.templates.default = "plotly_white"
-            x_step = 1. / nEp
-            y_step = 1. / nCh
-            y_kwargs = dict(domain=[1 - y_step, 1], showticklabels=False, zeroline=False, showgrid=False)
-            x_kwargs = dict(domain=[1 - x_step, 1], showticklabels=False)
-            layout = Layout(yaxis=YAxis(y_kwargs), showlegend=False, xaxis= x_kwargs )
-
-            for e in range(nEp):
-                x_kwargs.update(domain=[0 + (e) * x_step, 0 + (e+1) * x_step -0.01])
-                for c in range(nCh):
-                    y_kwargs.update(domain=[1 - (c + 1) * y_step, 1 - c * y_step])
-                    layout.update({'yaxis%d' % (c + 1): YAxis(y_kwargs), 'showlegend': False,
-                                   'xaxis%d' % (e + 1): x_kwargs})
-                    epoch = self.Yarray[c][idx_ep[e]:idx_ep[e] + epLen]
-                    # compute power spectrum
-                    f, aux_pxx = sig.welch(epoch.T, fs = int(self.frequency.text()), window='hamming', nperseg=round(epLen / 8),
-                                           detrend=False)
-                    self.f_len = len(f)
-                    traces_update.append(Scatter(x=f, y=aux_pxx, yaxis='y%d' % (c + 1),
-                                                 xaxis= 'x%d' % (e + 1), line=dict(color="#335BFF", width=0.8)))
-            annotations = [Annotation(x=-0.06, y= 0, xref='paper', yref='y%d' % (i + 1),
-                                           text=ch_name, font=Font(size=9), showarrow=False)
-                                for i, ch_name in enumerate(self.ch_names)]
-            layout.update(annotations=annotations)
-            layout.update(autosize=False, width=1080, height=565, margin=dict(l=70, r=30, t=35, b=30))
-            fig = Figure(data=traces_update, layout=layout)
-            fig.update_xaxes(type = 'log')
-            fig.write_html(name_html_file)
+            self.f_len = self.write_html.Power_spectrum_html(float(self.time_dimension_epochs.text()),
+                                                             int(self.frequency.text()), self.Yarray,
+                                                             self.ch_names)
             self.plot(name_html_file)
 
     def compute_Corr_matrix(self):
@@ -300,38 +238,11 @@ class ScorepochsApp(QMainWindow):
             if self.scorepochs_error_message.text() == '' and self.minfreqRange_error_message.text() == '' \
                     and self.maxfreqRange_error_message.text() == '' and self.min_freqRange.text() != '' \
                     and self.max_freqRange.text() != '':
-                self.data = []
                 name_html_file = 'update_figure.html'
-                epLen = round(float(self.time_dimension_epochs.text()) * int(self.frequency.text()))
-                dataLen = len(self.Yarray[0])
-                nCh = len(self.Yarray)
-                idx_ep = range(0, int(dataLen - epLen + 1), int(epLen + 1))
-                nEp = len(idx_ep)
-                epoch = np.zeros((nEp, nCh, epLen))
-                freqRange = [int(self.min_freqRange.text()),int(self.max_freqRange.text())]
-                for e in range(nEp):
-                    for c in range(nCh):
-                        epoch[e][c][0:epLen] = self.Yarray[c][idx_ep[e]:idx_ep[e] + epLen]
-                        f, aux_pxx = sig.welch(epoch[e][c].T, fs = int(self.frequency.text()), window='hamming', nperseg=round(epLen / 8),
-                                               detrend=False)
-                        if c == 0 and e == 0:  # The various parameters are obtained in the first interation
-                            pxx, idx_min, idx_max, nFreq = _spectrum_parameters(f, freqRange, aux_pxx, nEp, nCh)
-                        pxx[e][c] = aux_pxx[idx_min:idx_max + 1]
-                pxxXch = np.zeros((nEp, idx_max - idx_min + 1))
-                for c in range(nCh):
-                    for e in range(nEp):
-                        pxxXch[e] = pxx[e][c]
-                    score_ch, p = st.spearmanr(pxxXch, axis=1)
-                    self.data.append(score_ch)
-                fig = make_subplots(4, 16, subplot_titles=[ch_name for i, ch_name in enumerate(self.ch_names)])
-                channel=0
-                for i in range(4):
-                    for j in range(16):
-                        fig.add_trace(Heatmap(z=self.data[channel], showscale= True, zmin=0, zmax=1, colorscale = 'Viridis'), i+1, j+1)
-                        channel =  channel + 1
-                fig.update_annotations(font_size = 9)
-                fig.update_layout(autosize = False, width= 1080, height = 565)
-                fig.write_html(name_html_file)
+                self.write_html.Corr_matrix_html(float(self.time_dimension_epochs.text()),
+                                                 int(self.frequency.text()), self.Yarray,
+                                                 int(self.min_freqRange.text()), int(self.max_freqRange.text()),
+                                                 self.ch_names)
                 self.plot(name_html_file)
             else:
                 self.scorepochs_error_message.setText('Insert value correctly!')
@@ -349,18 +260,7 @@ class ScorepochsApp(QMainWindow):
                     {'freqRange': [int(self.min_freqRange.text()),int(self.max_freqRange.text())],
                      'fs': int(self.frequency.text()),
                      'windowL': int(self.time_dimension_epochs.text())}, self.Yarray)
-                fig = make_subplots(8, 8, subplot_titles=[ch_name for i, ch_name in enumerate(self.ch_names)])
-                channel = 0
-                for i in range(8):
-                    for j in range(8):
-                        fig.add_trace(Heatmap(z=[scoreVector[channel]], showscale=True, zmin=0, zmax=1, colorscale='Viridis'), i + 1,
-                                      j + 1)
-                        channel = channel + 1
-                fig.update_annotations(font_size=9)
-                fig.update_xaxes(showticklabels=False)
-                fig.update_yaxes(showticklabels=False)
-                fig.update_layout(autosize=False, width=1080, height=565)
-                fig.write_html(name_html_file)
+                self.write_html.scoreVector_html(scoreVector, self.ch_names)
                 self.plot(name_html_file)
             else:
                 self.scorepochs_error_message.setText('Insert value correctly!')
@@ -378,12 +278,7 @@ class ScorepochsApp(QMainWindow):
                     {'freqRange': [int(self.min_freqRange.text()),int(self.max_freqRange.text())],
                      'fs': int(self.frequency.text()),
                      'windowL': int(self.time_dimension_epochs.text())}, self.Yarray)
-                fig = Figure(data = [Heatmap(z=[scores], showscale=True, zmin=0, zmax=1, colorscale='Viridis')],
-                             layout=Layout(title= 'Scorepochs results:'))
-                fig.update_xaxes(showticklabels=False)
-                fig.update_yaxes(showticklabels=False)
-                fig.update_layout(autosize=False, width=1080, height=565)
-                fig.write_html(name_html_file)
+                self.write_html.scorepochs_html(scores)
                 self.plot(name_html_file)
             else:
                 self.scorepochs_error_message.setText('Insert value correctly!')
@@ -394,7 +289,6 @@ class ScorepochsApp(QMainWindow):
         self.clear_layout()
         container = QWidget()
         lay = QVBoxLayout(container)
-        self.createFile_html()
         url = os.path.abspath(name_html)
         webView = QWebEngineView()
         html_map = QtCore.QUrl.fromLocalFile(url)
@@ -431,7 +325,6 @@ class ScorepochsApp(QMainWindow):
         else:
             self.error_message_example.setText('Enter the data correctly')
 
-
 class Data_Processing:
 
     def csv_File(self, file_name, frequency):
@@ -445,6 +338,144 @@ class Data_Processing:
             ch_name = 'channel ' + str(i+1)
             Ch_names.append(ch_name)
         return Yarray, Xarray, Ch_names
+
+class Write_html:
+
+    def create_file_html(self , Yarray, Xarray, ch_names):
+        pio.templates.default = "plotly_white"
+        step = 1. / len(Yarray)
+        kwargs = dict(domain=[1 - step, 1], showticklabels=False, zeroline=False, showgrid=False)
+        layout = Layout(yaxis=YAxis(kwargs), showlegend=False)
+        traces = [Scatter(x=Xarray, y=Yarray[0], line=dict(color="#335BFF", width=0.8))]
+        for ii in range(1, len(Yarray)):
+            kwargs.update(domain=[1 - (ii + 1) * step, 1 - ii * step])
+            layout.update({'yaxis%d' % (ii + 1): YAxis(kwargs), 'showlegend': False,
+                           'xaxis%d' % (ii + 1): dict(showticklabels=False)})
+            traces.append(Scatter(x=Xarray, y=Yarray[ii],
+                                       yaxis='y%d' % (ii + 1), line=dict(color="#335BFF", width=0.8)))
+
+        annotations = [Annotation(x=-0.06, y=0, xref='paper', yref='y%d' % (i + 1),
+                                       text=ch_name, font=Font(size=9), showarrow=False)
+                            for i, ch_name in enumerate(ch_names)]
+        layout.update(annotations=annotations)
+        layout.update(autosize=False, width=1080, height=565, margin=dict(l=70, r=30, t=35, b=30))
+        fig = Figure(data=traces, layout=layout)
+        fig.update_layout(xaxis1_showticklabels=True, xaxis1_side="top")
+        fig.write_html('figure.html')
+        return fig
+
+    def update_Plot(self,time_dimension_epochs, frequency, Yarray, figure):
+            i= 0
+            x = float(time_dimension_epochs)
+            offset = (1/int(frequency))
+            max = (1 / int(frequency)) * (len(Yarray[0]) - 1)
+            fig = copy.deepcopy(figure)
+
+            while i <= ((max/x)-1):
+                fig.add_shape(Shape(type='rect', xref='x', yref='paper',x0=(x*i)+(offset*i), x1=x*(i+1)+(offset*i), y0 = -0.02, y1 = 1.003))
+                fig.layout.shapes[i]['yref'] = 'paper'
+                fig.add_annotation(Annotation(x=(x*i + x*(i+1))/2, y=-0.055, yref='paper',
+                                                   text=('e'+str(i+1)), font=Font(size=12), showarrow=False))
+                i = i+1
+            fig.write_html('update_figure.html')
+
+    def Power_spectrum_html(self, time_dimension_epochs, frequency, Yarray, ch_names):
+            epLen = round(time_dimension_epochs * frequency)
+            dataLen = len(Yarray[0])
+            nCh = len(Yarray)
+            idx_ep = range(0, int(dataLen - epLen + 1), int(epLen + 1))
+            nEp = len(idx_ep)
+            traces_update = []
+            name_html_file = 'update_figure.html'
+            pio.templates.default = "plotly_white"
+            x_step = 1. / nEp
+            y_step = 1. / nCh
+            y_kwargs = dict(domain=[1 - y_step, 1], showticklabels=False, zeroline=False, showgrid=False)
+            x_kwargs = dict(domain=[1 - x_step, 1], showticklabels=False)
+            layout = Layout(yaxis=YAxis(y_kwargs), showlegend=False, xaxis= x_kwargs )
+
+            for e in range(nEp):
+                x_kwargs.update(domain=[0 + (e) * x_step, 0 + (e+1) * x_step -0.01])
+                for c in range(nCh):
+                    y_kwargs.update(domain=[1 - (c + 1) * y_step, 1 - c * y_step])
+                    layout.update({'yaxis%d' % (c + 1): YAxis(y_kwargs), 'showlegend': False,
+                                   'xaxis%d' % (e + 1): x_kwargs})
+                    epoch = Yarray[c][idx_ep[e]:idx_ep[e] + epLen]
+                    # compute power spectrum
+                    f, aux_pxx = sig.welch(epoch.T, fs = frequency, window='hamming', nperseg=round(epLen / 8),
+                                           detrend=False)
+                    f_len = len(f)
+                    traces_update.append(Scatter(x=f, y=aux_pxx, yaxis='y%d' % (c + 1),
+                                                 xaxis= 'x%d' % (e + 1), line=dict(color="#335BFF", width=0.8)))
+            annotations = [Annotation(x=-0.06, y= 0, xref='paper', yref='y%d' % (i + 1),
+                                           text=ch_name, font=Font(size=9), showarrow=False)
+                                for i, ch_name in enumerate(ch_names)]
+            layout.update(annotations=annotations)
+            layout.update(autosize=False, width=1080, height=565, margin=dict(l=70, r=30, t=35, b=30))
+            fig = Figure(data=traces_update, layout=layout)
+            fig.update_xaxes(type = 'log')
+            fig.write_html(name_html_file)
+            return f_len
+
+    def Corr_matrix_html(self, time_dimension_epochs, frequency, Yarray, min_freqRange, max_freqRange, ch_names):
+                data = []
+                name_html_file = 'update_figure.html'
+                epLen = round(time_dimension_epochs * frequency)
+                dataLen = len(Yarray[0])
+                nCh = len(Yarray)
+                idx_ep = range(0, int(dataLen - epLen + 1), int(epLen + 1))
+                nEp = len(idx_ep)
+                epoch = np.zeros((nEp, nCh, epLen))
+                freqRange = [min_freqRange, max_freqRange]
+                for e in range(nEp):
+                    for c in range(nCh):
+                        epoch[e][c][0:epLen] = Yarray[c][idx_ep[e]:idx_ep[e] + epLen]
+                        f, aux_pxx = sig.welch(epoch[e][c].T, fs = frequency, window='hamming', nperseg=round(epLen / 8),
+                                               detrend=False)
+                        if c == 0 and e == 0:  # The various parameters are obtained in the first interation
+                            pxx, idx_min, idx_max, nFreq = _spectrum_parameters(f, freqRange, aux_pxx, nEp, nCh)
+                        pxx[e][c] = aux_pxx[idx_min:idx_max + 1]
+                pxxXch = np.zeros((nEp, idx_max - idx_min + 1))
+                for c in range(nCh):
+                    for e in range(nEp):
+                        pxxXch[e] = pxx[e][c]
+                    score_ch, p = st.spearmanr(pxxXch, axis=1)
+                    data.append(score_ch)
+                fig = make_subplots(4, 16, subplot_titles=[ch_name for i, ch_name in enumerate(ch_names)])
+                channel=0
+                for i in range(4):
+                    for j in range(16):
+                        fig.add_trace(Heatmap(z=data[channel], showscale= True, zmin=0, zmax=1, colorscale = 'Viridis'), i+1, j+1)
+                        channel =  channel + 1
+                fig.update_annotations(font_size = 9)
+                fig.update_layout(autosize = False, width= 1080, height = 565)
+                fig.write_html(name_html_file)
+
+    def scoreVector_html(self, scoreVector, ch_names):
+        name_html_file = 'update_figure.html'
+        fig = make_subplots(8, 8, subplot_titles=[ch_name for i, ch_name in enumerate(ch_names)])
+        channel = 0
+        for i in range(8):
+            for j in range(8):
+                fig.add_trace(Heatmap(z=[scoreVector[channel]], showscale=True, zmin=0, zmax=1, colorscale='Viridis'),
+                              i + 1,
+                              j + 1)
+                channel = channel + 1
+        fig.update_annotations(font_size=9)
+        fig.update_xaxes(showticklabels=False)
+        fig.update_yaxes(showticklabels=False)
+        fig.update_layout(autosize=False, width=1080, height=565)
+        fig.write_html(name_html_file)
+
+    def scorepochs_html(self, scores):
+        name_html_file = 'update_figure.html'
+        fig = Figure(data=[Heatmap(z=[scores], showscale=True, zmin=0, zmax=1, colorscale='Viridis')],
+                     layout=Layout(title='Scorepochs results:'))
+        fig.update_xaxes(showticklabels=False)
+        fig.update_yaxes(showticklabels=False)
+        fig.update_layout(autosize=False, width=1080, height=565)
+        fig.write_html(name_html_file)
+
 
 app= QApplication(sys.argv)
 scorepochs = ScorepochsApp()
