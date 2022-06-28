@@ -11,4 +11,5 @@ This graphical interface allows the user to implement the Scorepochs algorithm a
 Description | Screenshot
 ---|---
 This simple GUI is written entirely in Python with PyQt5 - PyQt is a Python binding for Qt, which is a set of C++ libraries and development tools | <img src="https://user-images.githubusercontent.com/103278076/176162207-11988211-f6fa-4c5e-a6cc-fe80d7021e54.png" width = "300">
-Graphic display of a set of M/EEG recordings made using the plotly Python library - The M/EEG recordings are supplied by the user by loading a csv file | <img src="https://user-images.githubusercontent.com/103278076/176219411-ba7cbf06-f7d1-4d50-a676-a116654f29ba.png" width = "300">
+Graphic representation of a set of M/EEG recordings made using the plotly Python library - The M/EEG recordings are supplied by the user by loading a csv file | <img src="https://user-images.githubusercontent.com/103278076/176219411-ba7cbf06-f7d1-4d50-a676-a116654f29ba.png" width = "300">
+Graphic representation of the PSD calculation result - After defining the time dimension of the epochs, the algorithm calculates for each epoch of each PSD channel using the Welch method in a given frequency range | <img src="https://user-images.githubusercontent.com/103278076/176227886-ead87c3b-19e4-4f75-a401-a3ade57ed846.png" width = "300">
