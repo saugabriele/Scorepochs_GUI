@@ -1,4 +1,4 @@
-# Scorepochs - Gui
+# Scorepochs - GUI
 
 This project aims to create a GUI (Graphical User Iterface) for the [Scorepochs](https://github.com/Scorepochs-tools/scorepochs_py) tool already created in another work by Simone Maurizio La Cava.
 
