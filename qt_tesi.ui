@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>MainWindow</class>
- <widget class="QMainWindow" name="MainWindow">
+ <class>Scorepochs</class>
+ <widget class="QMainWindow" name="Scorepochs">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Scorepochs</string>
   </property>
   <property name="styleSheet">
    <string notr="true">background-color: rgb(43, 43, 43);</string>
@@ -460,8 +460,8 @@ font: 10pt &quot;MS Shell Dlg 2&quot;;</string>
                     <rect>
                      <x>0</x>
                      <y>0</y>
-                     <width>41</width>
-                     <height>16</height>
+                     <width>98</width>
+                     <height>28</height>
                     </rect>
                    </property>
                   </widget>

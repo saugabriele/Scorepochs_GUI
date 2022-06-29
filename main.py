@@ -24,7 +24,7 @@ from plotly.subplots import make_subplots
 import plotly.offline as plt
 from scipy import signal as sig
 from scipy import stats as st
-from scorepochs_py import _spectrum_parameters,scorEpochs
+from scorepochs import _spectrum_parameters,scorEpochs
 
 class ScorepochsApp(QMainWindow):
     def __init__(self):
@@ -419,6 +419,7 @@ class Write_html:
 
     def Corr_matrix_html(self, time_dimension_epochs, frequency, Yarray, min_freqRange, max_freqRange, ch_names):
                 data = []
+                ep_name = []
                 name_html_file = 'update_figure.html'
                 epLen = round(time_dimension_epochs * frequency)
                 dataLen = len(Yarray[0])
@@ -435,6 +436,7 @@ class Write_html:
                         if c == 0 and e == 0:  # The various parameters are obtained in the first interation
                             pxx, idx_min, idx_max, nFreq = _spectrum_parameters(f, freqRange, aux_pxx, nEp, nCh)
                         pxx[e][c] = aux_pxx[idx_min:idx_max + 1]
+                    ep_name.append('E%d' % (e+1))
                 pxxXch = np.zeros((nEp, idx_max - idx_min + 1))
                 for c in range(nCh):
                     for e in range(nEp):
@@ -445,19 +447,24 @@ class Write_html:
                 channel=0
                 for i in range(4):
                     for j in range(16):
-                        fig.add_trace(Heatmap(z=data[channel], showscale= True, zmin=0, zmax=1, colorscale = 'Viridis'), i+1, j+1)
+                        fig.add_trace(Heatmap(x = ep_name, y= ep_name, z=data[channel], showscale= True, zmin=0, zmax=1, colorscale = 'Viridis'), i+1, j+1)
                         channel =  channel + 1
                 fig.update_annotations(font_size = 9)
+                fig.update_xaxes(showticklabels=False)
+                fig.update_yaxes(showticklabels=False)
                 fig.update_layout(autosize = False, width= 1080, height = 565)
                 fig.write_html(name_html_file)
 
     def scoreVector_html(self, scoreVector, ch_names):
         name_html_file = 'update_figure.html'
+        ep_name = []
+        for k in range(len(scoreVector[0])):
+            ep_name.append('E%d' % (k+1))
         fig = make_subplots(8, 8, subplot_titles=[ch_name for i, ch_name in enumerate(ch_names)])
         channel = 0
         for i in range(8):
             for j in range(8):
-                fig.add_trace(Heatmap(z=[scoreVector[channel]], showscale=True, zmin=0, zmax=1, colorscale='Viridis'),
+                fig.add_trace(Heatmap(x= ep_name, z=[scoreVector[channel]], showscale=True, zmin=0, zmax=1, colorscale='Viridis'),
                               i + 1,
                               j + 1)
                 channel = channel + 1
