@@ -476,7 +476,10 @@ class Write_html:
 
     def scorepochs_html(self, scores):
         name_html_file = 'update_figure.html'
-        fig = Figure(data=[Heatmap(z=[scores], showscale=True, zmin=0, zmax=1, colorscale='Viridis')],
+        ep_name = []
+        for k in range(len(scores)):
+            ep_name.append('E%d' % (k + 1))
+        fig = Figure(data=[Heatmap(x = ep_name, z=[scores], showscale=True, zmin=0, zmax=1, colorscale='Viridis')],
                      layout=Layout(title='Scorepochs results:'))
         fig.update_xaxes(showticklabels=False)
         fig.update_yaxes(showticklabels=False)
