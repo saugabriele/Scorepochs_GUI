@@ -16,3 +16,9 @@ Graphic representation of the PSD calculation result - After defining the time d
 Graphical representation of the correlation matrix - At the channel level, a similarity score, computed by using the Spearman correlation coefficient, is evaluated between the PSD values ​​extracted from all the epochs, thereby providing a correlation matrix. | <img src="https://user-images.githubusercontent.com/103278076/176251695-43006c69-7a26-4a73-911f-791fdecf99d5.png" width = "300">
 Graphical representation of the score vector - The average is computed over the columns of the symmetric matrix to obtain a score vector with a length equal to the number of epochs, where the entries represent the mean similarity score of the corresponding epoch. | <img src="https://user-images.githubusercontent.com/103278076/176255606-1de9f917-3262-4f0c-8f13-1d6439d25fdc.png" width = "300">
 Graphical representation of the scores provided by Scorepochs for each single epoch - These scores are obtained by calculating the average of the score vectors across the channels. | <img src="https://user-images.githubusercontent.com/103278076/176267964-0546d948-40d8-4235-a854-da0fd44b39cb.png" width = "300">
+
+## Required libraries
+ - Numpy
+ - Scipy
+ - PyQt5
+ - Plotly
