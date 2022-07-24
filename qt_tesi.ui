@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>946</width>
-    <height>562</height>
+    <height>654</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -99,12 +99,12 @@ font: 75 12pt &quot;Noto Naskh Arabic UI&quot;;</string>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="plot_settings_button">
+           <widget class="QPushButton" name="scorepochs_functions_button">
             <property name="styleSheet">
              <string notr="true">background-color: rgb(255, 255, 255);</string>
             </property>
             <property name="text">
-             <string>Plot Settings</string>
+             <string>Scorepochs Functions</string>
             </property>
            </widget>
           </item>
@@ -460,8 +460,8 @@ font: 10pt &quot;MS Shell Dlg 2&quot;;</string>
                     <rect>
                      <x>0</x>
                      <y>0</y>
-                     <width>98</width>
-                     <height>28</height>
+                     <width>41</width>
+                     <height>16</height>
                     </rect>
                    </property>
                   </widget>
@@ -830,8 +830,66 @@ color: rgb(255, 0, 0);</string>
                        <string notr="true">color: rgb(255, 255, 255);</string>
                       </property>
                       <property name="text">
-                       <string>Here you can calculate the PSD of each epoch and see the results:</string>
+                       <string>Here you can calculate the PSD of each epoch and see the results.</string>
                       </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QWidget" name="horizontalWidget" native="true">
+                      <layout class="QHBoxLayout" name="horizontalLayout_4">
+                       <item alignment="Qt::AlignLeft">
+                        <widget class="QWidget" name="verticalWidget_2" native="true">
+                         <layout class="QVBoxLayout" name="verticalLayout_25">
+                          <item>
+                           <widget class="QLabel" name="label_20">
+                            <property name="styleSheet">
+                             <string notr="true">color: rgb(255, 255, 255);</string>
+                            </property>
+                            <property name="text">
+                             <string>Select a channel:              </string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item alignment="Qt::AlignLeft">
+                           <widget class="QSpinBox" name="channels_box">
+                            <property name="styleSheet">
+                             <string notr="true">background-color: rgb(255, 255, 255);</string>
+                            </property>
+                           </widget>
+                          </item>
+                         </layout>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QWidget" name="verticalWidget" native="true">
+                         <property name="sizePolicy">
+                          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+                           <horstretch>0</horstretch>
+                           <verstretch>0</verstretch>
+                          </sizepolicy>
+                         </property>
+                         <layout class="QVBoxLayout" name="verticalLayout_24">
+                          <item>
+                           <widget class="QLabel" name="label_19">
+                            <property name="styleSheet">
+                             <string notr="true">color: rgb(255, 255, 255);</string>
+                            </property>
+                            <property name="text">
+                             <string>Select a epoch:</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item alignment="Qt::AlignLeft">
+                           <widget class="QSpinBox" name="epochs_box">
+                            <property name="styleSheet">
+                             <string notr="true">background-color: rgb(255, 255, 255);</string>
+                            </property>
+                           </widget>
+                          </item>
+                         </layout>
+                        </widget>
+                       </item>
+                      </layout>
                      </widget>
                     </item>
                     <item>
@@ -885,7 +943,7 @@ color: rgb(255, 0, 0);</string>
                     <property name="geometry">
                      <rect>
                       <x>10</x>
-                      <y>40</y>
+                      <y>70</y>
                       <width>51</width>
                       <height>16</height>
                      </rect>
@@ -900,8 +958,8 @@ color: rgb(255, 0, 0);</string>
                    <widget class="QLabel" name="label_18">
                     <property name="geometry">
                      <rect>
-                      <x>180</x>
-                      <y>40</y>
+                      <x>170</x>
+                      <y>70</y>
                       <width>51</width>
                       <height>16</height>
                      </rect>
@@ -916,8 +974,8 @@ color: rgb(255, 0, 0);</string>
                    <widget class="QLineEdit" name="min_freqRange">
                     <property name="geometry">
                      <rect>
-                      <x>60</x>
-                      <y>40</y>
+                      <x>50</x>
+                      <y>70</y>
                       <width>91</width>
                       <height>20</height>
                      </rect>
@@ -930,7 +988,7 @@ color: rgb(255, 0, 0);</string>
                     <property name="geometry">
                      <rect>
                       <x>220</x>
-                      <y>40</y>
+                      <y>70</y>
                       <width>91</width>
                       <height>20</height>
                      </rect>
@@ -942,8 +1000,8 @@ color: rgb(255, 0, 0);</string>
                    <widget class="QPushButton" name="compute_corr_matrix_button">
                     <property name="geometry">
                      <rect>
-                      <x>20</x>
-                      <y>110</y>
+                      <x>10</x>
+                      <y>140</y>
                       <width>151</width>
                       <height>23</height>
                      </rect>
@@ -959,7 +1017,7 @@ color: rgb(255, 0, 0);</string>
                     <property name="geometry">
                      <rect>
                       <x>190</x>
-                      <y>110</y>
+                      <y>140</y>
                       <width>151</width>
                       <height>23</height>
                      </rect>
@@ -974,8 +1032,8 @@ color: rgb(255, 0, 0);</string>
                    <widget class="QPushButton" name="compute_scorepochs_button">
                     <property name="geometry">
                      <rect>
-                      <x>360</x>
-                      <y>110</y>
+                      <x>370</x>
+                      <y>140</y>
                       <width>151</width>
                       <height>23</height>
                      </rect>
@@ -990,8 +1048,8 @@ color: rgb(255, 0, 0);</string>
                    <widget class="QLabel" name="scorepochs_error_message">
                     <property name="geometry">
                      <rect>
-                      <x>20</x>
-                      <y>150</y>
+                      <x>0</x>
+                      <y>180</y>
                       <width>481</width>
                       <height>20</height>
                      </rect>
@@ -1007,8 +1065,8 @@ color: rgb(255, 0, 0);</string>
                    <widget class="QLabel" name="maxfreqRange_error_message">
                     <property name="geometry">
                      <rect>
-                      <x>230</x>
-                      <y>70</y>
+                      <x>200</x>
+                      <y>100</y>
                       <width>161</width>
                       <height>20</height>
                      </rect>
@@ -1024,9 +1082,9 @@ color: rgb(255, 0, 0);</string>
                    <widget class="QLabel" name="minfreqRange_error_message">
                     <property name="geometry">
                      <rect>
-                      <x>50</x>
-                      <y>70</y>
-                      <width>161</width>
+                      <x>20</x>
+                      <y>100</y>
+                      <width>151</width>
                       <height>20</height>
                      </rect>
                     </property>
@@ -1036,6 +1094,22 @@ color: rgb(255, 0, 0);</string>
                     </property>
                     <property name="text">
                      <string/>
+                    </property>
+                   </widget>
+                   <widget class="QCheckBox" name="button_freqRange">
+                    <property name="geometry">
+                     <rect>
+                      <x>10</x>
+                      <y>40</y>
+                      <width>70</width>
+                      <height>17</height>
+                     </rect>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">color: rgb(255, 255, 255);</string>
+                    </property>
+                    <property name="text">
+                     <string>default</string>
                     </property>
                    </widget>
                   </widget>
