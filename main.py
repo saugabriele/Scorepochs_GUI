@@ -12,17 +12,11 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QFrame, QStackedWidget, Q
     QFileDialog, QLabel, QTextEdit, QVBoxLayout, QScrollArea, QCheckBox, QHBoxLayout, QSpinBox
 from PyQt5.uic import loadUi
 from PyQt5.QtGui import QDoubleValidator, QValidator
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
 import plotly.io as pio
 from plotly.graph_objs import Layout, Scatter, Figure, Marker, Heatmap,Histogram
 from plotly.graph_objs.layout import YAxis, Annotation,Shape
 from plotly.graph_objs.layout.annotation import Font
 from plotly.subplots import make_subplots
-import plotly.offline as plt
-import plotly.figure_factory as ff
 from scipy import signal as sig
 from scipy import stats as st
 from scorepochs import _spectrum_parameters,scorEpochs
@@ -87,7 +81,7 @@ class ScorepochsApp(QMainWindow):
         self.button_freqRange = self.Windows.findChild(QCheckBox, 'button_freqRange')
         self.epochs_box.setMaximum(0)
         self.browse.clicked.connect(self.browseFile)
-        self.add_plot.clicked.connect(self.get_List)
+        self.add_plot.clicked.connect(self.eeg_plots)
         self.plot_results_button.clicked.connect(self.changepage_PlotResults)
         self.scorepochs_functions_button.clicked.connect(self.changepage_Scorepochs_Functions)
         self.add_file.clicked.connect(self.changepage_addfile)
@@ -109,11 +103,12 @@ class ScorepochsApp(QMainWindow):
         self.min_freqRange.editingFinished.connect(self.validating_min_freqRange)
         self.max_freqRange.editingFinished.connect(self.validating_max_freqRange)
         self.button_freqRange.stateChanged.connect(self.set_freqRange)
+        self.error_message.setReadOnly(True)
 
     def browseFile(self):
         global fname
         home_directory = expanduser('~')
-        fname, _ = QFileDialog.getOpenFileNames(self, 'Open file', home_directory , 'CSV Files (*.csv)')
+        fname, _ = QFileDialog.getOpenFileNames(self, 'Open file', home_directory, 'CSV Files (*.csv)')
         if fname == []:
             if self.fileselected == '':
                     self.error_message_filename.setText('No File Selected')
@@ -204,7 +199,7 @@ class ScorepochsApp(QMainWindow):
            self.min_freqRange.clear()
            self.max_freqRange.clear()
 
-    def get_List(self):
+    def eeg_plots(self):
         self.error_message.clear()
         if str(self.error_message_filename.text()) != '' or str(self.error_message_frequency.text()) != '' or \
                     str(self.frequency.text()) == '' or str(self.filename.text()) == '':
@@ -214,8 +209,6 @@ class ScorepochsApp(QMainWindow):
             self.message_data_processing.setText('Data processing...')
             self.message_data_processing.repaint()
             self.Yarray, self.Xarray, self.ch_names= self.data_proc.csv_File(self.fileselected, int(self.frequency.text()))
-            self.channels_box.setMaximum(len(self.Yarray))
-            self.channels_box.setMinimum(1)
             self.fig = self.write_html.create_file_html(self.Yarray, self.Xarray, self.ch_names)
             self.plot()
 
@@ -233,6 +226,8 @@ class ScorepochsApp(QMainWindow):
     def changepage_Scorepochs_Functions(self):
         if self.fig is not None:
             self.windows_StackedWidget.setCurrentWidget(self.plot_settings_page)
+            self.channels_box.setMaximum(len(self.Yarray))
+            self.channels_box.setMinimum(1)
         else:
             self.windows_StackedWidget.setCurrentWidget(self.data_page)
 
@@ -244,7 +239,8 @@ class ScorepochsApp(QMainWindow):
             self.plot('update_figure.html')
 
     def compute_Power_spectrum(self):
-        if str(self.dimension_epochs_error_message.text()) != '' or self.time_dimension_epochs.text() == '' or self.epochs_box.value() == 0:
+        if str(self.dimension_epochs_error_message.text()) != '' or self.time_dimension_epochs.text() == '' \
+                or self.epochs_box.value() == 0:
             self.error_message_compute_PSD.setText('First you have to define the time dimension of each epoch.')
         else:
             self.scorepochs_error_message.clear()
@@ -266,8 +262,7 @@ class ScorepochsApp(QMainWindow):
                 name_html_file = 'update_figure.html'
                 self.write_html.Corr_matrix_html(float(self.time_dimension_epochs.text()),
                                                  int(self.frequency.text()), self.Yarray,
-                                                 int(self.min_freqRange.text()), int(self.max_freqRange.text()),
-                                                 self.ch_names)
+                                                 int(self.min_freqRange.text()), int(self.max_freqRange.text()))
                 self.plot(name_html_file)
             else:
                 self.scorepochs_error_message.setText('Insert value correctly!')
@@ -399,7 +394,8 @@ class Write_html:
             fig = copy.deepcopy(figure)
 
             while i <= ((max/x)-1):
-                fig.add_shape(Shape(type='rect', xref='x', yref='paper',x0=(x*i)+(offset*i), x1=x*(i+1)+(offset*i), y0 = -0.02, y1 = 1.003))
+                fig.add_shape(Shape(type='rect', xref='x', yref='paper',x0=(x*i)+(offset*i), x1=x*(i+1)+(offset*i),
+                                    y0 = -0.02, y1 = 1.003))
                 fig.layout.shapes[i]['yref'] = 'paper'
                 fig.add_annotation(Annotation(x=(x*i + x*(i+1))/2, y=-0.055, yref='paper',
                                                    text=('e'+str(i+1)), font=Font(size=12), showarrow=False))
@@ -408,27 +404,23 @@ class Write_html:
 
 
     def Power_spectrum_html(self, time_dimension_epochs, frequency, Yarray, channel, epoch_selected):
-        x_data = []
         epLen = round(time_dimension_epochs * frequency)
         dataLen = len(Yarray[0])
         idx_ep = range(0, int(dataLen - epLen + 1), int(epLen + 1))
-        traces_update = []
         name_html_file = 'update_figure.html'
 
         epoch = Yarray[channel-1][idx_ep[epoch_selected-1]:idx_ep[epoch_selected-1] + epLen]
         # compute power spectrum
         f, aux_pxx = sig.welch(epoch.T, fs=frequency, window='hamming', nperseg=round(epLen / 8),
                                detrend=False)
-        traces_update.append(f)
-        x_data.append(aux_pxx)
 
-        fig = Figure(data=[Scatter(x=traces_update[0], y=x_data[0], line=dict(color="#335BFF", width=0.8))],
+        fig = Figure(data=[Scatter(x=f, y=aux_pxx, line=dict(color="#335BFF", width=0.8))],
                      layout=Layout(title='Channel {c}, epoch {e}:'.format(c =channel, e=epoch_selected),
                                    autosize=False, width=1080, height=540, margin=dict(l=70, r=30, t=35, b=30)))
         fig.update_xaxes(type='log')
         fig.write_html(name_html_file)
 
-    def Corr_matrix_html(self, time_dimension_epochs, frequency, Yarray, min_freqRange, max_freqRange, ch_names):
+    def Corr_matrix_html(self, time_dimension_epochs, frequency, Yarray, min_freqRange, max_freqRange):
         data = []
         ep_name = []
         name_html_file = 'update_figure.html'
@@ -465,9 +457,7 @@ class Write_html:
                         {
                             "label": "channel %d" % (c+1),
                             "method": "update",
-                            "args": [
-                                {"z": [data[c][::-1]]}
-                            ],
+                            "args": [{"z": [data[c][::-1]]}]
                         }
                         for c in range(len(data))
                     ],
@@ -494,8 +484,9 @@ class Write_html:
         channel = 0
         for i in range(8):
             for j in range(8):
-                fig.add_trace(Heatmap(x= ep_name, z=[scoreVector[channel]], showscale=True, zmin=0, zmax=1, colorscale='Viridis',
-                                      hoverinfo = 'text', text=[hover_text[j+(8*i)]], xgap = 2), i + 1, j + 1)
+                fig.add_trace(Heatmap(x= ep_name, z=[scoreVector[channel]], showscale=True, zmin=0, zmax=1,
+                                      colorscale='Viridis', hoverinfo = 'text', text=[hover_text[j+(8*i)]], xgap = 2),
+                              i + 1, j + 1)
                 channel = channel + 1
         fig.update_annotations(font_size=9)
         fig.update_xaxes(showticklabels=False)
@@ -546,8 +537,10 @@ class Write_html:
         name_html_file = 'update_figure.html'
         ep_name = []
         for k in range(len(scores)):
-            ep_name.append('Epoch %d' % (k + 1))
-        fig = make_subplots(3,4, specs=[[{'colspan':4}, None, None, None], [{},{'colspan':2, 'rowspan':2}, None, {}],[{},None,None,{}]],
+            ep_name.append('E%d' % (k + 1))
+        fig = make_subplots(3,4,specs=[[{'colspan':4}, None, None, None],
+                                       [{},{'colspan':2, 'rowspan':2}, None, {}],
+                                       [{},None,None,{}]],
                             subplot_titles=['Scorepochs result:',None, 'Score distribution graph:'])
         fig.add_trace(Heatmap(x=ep_name, z=[scores], showscale=True, zmin=0, zmax=1, colorscale='Viridis',xgap=3,
                               hovertemplate="<br>".join(["%{x}","Score: %{z}<extra></extra>"])))

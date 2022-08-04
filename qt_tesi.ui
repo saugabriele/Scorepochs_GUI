@@ -460,8 +460,8 @@ font: 10pt &quot;MS Shell Dlg 2&quot;;</string>
                     <rect>
                      <x>0</x>
                      <y>0</y>
-                     <width>41</width>
-                     <height>16</height>
+                     <width>98</width>
+                     <height>28</height>
                     </rect>
                    </property>
                   </widget>
@@ -742,7 +742,7 @@ color: rgb(255, 255, 255);
 font: 10pt &quot;MS Shell Dlg 2&quot;;</string>
                    </property>
                    <property name="text">
-                    <string>Plot Settings</string>
+                    <string>Scorepochs Functions</string>
                    </property>
                   </widget>
                  </item>
