@@ -9,7 +9,7 @@ from os.path import expanduser, abspath
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5 import QtWidgets, uic, QtCore
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFrame, QStackedWidget, QWidget, QPushButton, QLineEdit,\
-    QFileDialog, QLabel, QTextEdit, QVBoxLayout, QScrollArea, QCheckBox, QHBoxLayout, QSpinBox
+    QFileDialog, QLabel, QTextEdit, QVBoxLayout, QScrollArea, QCheckBox, QHBoxLayout, QSpinBox, QComboBox
 from PyQt5.uic import loadUi
 from PyQt5.QtGui import QDoubleValidator, QValidator
 import plotly.io as pio
@@ -27,7 +27,6 @@ class ScorepochsApp(QMainWindow):
         loadUi('qt_tesi.ui', self)
         self.data_proc = Data_Processing()
         self.write_html = Write_html()
-        self.fileselected = ''
         self.fig = None
         self.f_len = 0
         self.Windows = self.findChild(QFrame, 'windows_frame')
@@ -41,7 +40,7 @@ class ScorepochsApp(QMainWindow):
         self.plot_settings_page = self.Windows.findChild(QWidget, 'plot_settings_page')
         self.data_frame = self.data_page.findChild(QFrame, 'data_frame')
         self.browse = self.data_frame.findChild(QPushButton, 'browse_button')
-        self.filename = self.data_frame.findChild(QLabel, 'filename')
+        self.fileselected_combobox = self.Windows.findChild(QComboBox, 'fileselected_combobox')
         self.frequency = self.data_frame.findChild(QLineEdit, 'frequency')
         self.error_message_filename = self.data_frame.findChild(QLabel, 'error_message_file')
         self.error_message_frequency = self.data_frame.findChild(QLabel, 'error_message_frequency')
@@ -103,21 +102,22 @@ class ScorepochsApp(QMainWindow):
         self.min_freqRange.editingFinished.connect(self.validating_min_freqRange)
         self.max_freqRange.editingFinished.connect(self.validating_max_freqRange)
         self.button_freqRange.stateChanged.connect(self.set_freqRange)
+        self.fileselected_combobox.currentTextChanged.connect(self.new_file_selected)
         self.error_message.setReadOnly(True)
 
     def browseFile(self):
-        global fname
+        self.fileselected_combobox.clear()
         home_directory = expanduser('~')
-        fname, _ = QFileDialog.getOpenFileNames(self, 'Open file', home_directory, 'CSV Files (*.csv)')
-        if fname == []:
-            if self.fileselected == '':
-                    self.error_message_filename.setText('No File Selected')
+        self.fname, _ = QFileDialog.getOpenFileNames(self, 'Open file', home_directory, 'CSV Files (*.csv)')
+        if self.fname == []:
+            if self.fileselected_combobox.currentIndex() == -1:
+                self.error_message_filename.setText('No File Selected.')
             else:
                 return
         else:
             self.error_message_filename.clear()
-            self.fileselected = str(fname[0])
-            self.filename.setText(self.fileselected)
+            for i in range(len(self.fname)):
+                self.fileselected_combobox.insertItem(i, str(self.fname[i]))
 
     def validating_frequency(self):
         self.error_message_frequency.clear()
@@ -187,6 +187,9 @@ class ScorepochsApp(QMainWindow):
         if list[0] != 2:
             self.maxfreqRange_error_message.setText('Max value: Range(1 : 40)')
 
+    def new_file_selected(self):
+        self.fig = None
+
     def set_freqRange(self):
        if (self.button_freqRange.isChecked()):
             self.min_freqRange.setText('1')
@@ -202,13 +205,14 @@ class ScorepochsApp(QMainWindow):
     def eeg_plots(self):
         self.error_message.clear()
         if str(self.error_message_filename.text()) != '' or str(self.error_message_frequency.text()) != '' or \
-                    str(self.frequency.text()) == '' or str(self.filename.text()) == '':
+                    str(self.frequency.text()) == '' or self.fileselected_combobox.currentIndex() == -1:
             self.windows_StackedWidget.setCurrentWidget(self.data_page)
             self.error_message.setText('Enter the data correctly')
         else:
             self.message_data_processing.setText('Data processing...')
             self.message_data_processing.repaint()
-            self.Yarray, self.Xarray, self.ch_names= self.data_proc.csv_File(self.fileselected, int(self.frequency.text()))
+            self.Yarray, self.Xarray, self.ch_names= self.data_proc.csv_File(self.fileselected_combobox.currentText(),
+                                                                             int(self.frequency.text()))
             self.fig = self.write_html.create_file_html(self.Yarray, self.Xarray, self.ch_names)
             self.plot()
 
@@ -221,15 +225,22 @@ class ScorepochsApp(QMainWindow):
         self.message_create_file.clear()
 
     def changepage_PlotResults(self):
-        self.windows_StackedWidget.setCurrentWidget(self.plot_page)
+        if self.fig is not None:
+            self.error_message.clear()
+            self.windows_StackedWidget.setCurrentWidget(self.plot_page)
+        else:
+            self.windows_StackedWidget.setCurrentWidget(self.data_page)
+            self.error_message.setText('First create the figure that displays traces of the M / EEG channels.')
 
     def changepage_Scorepochs_Functions(self):
         if self.fig is not None:
+            self.error_message.clear()
             self.windows_StackedWidget.setCurrentWidget(self.plot_settings_page)
             self.channels_box.setMaximum(len(self.Yarray))
             self.channels_box.setMinimum(1)
         else:
             self.windows_StackedWidget.setCurrentWidget(self.data_page)
+            self.error_message.setText('First create the figure that displays traces of the M / EEG channels.')
 
     def update_Plot(self):
         if str(self.dimension_epochs_error_message.text()) != '':

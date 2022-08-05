@@ -129,7 +129,7 @@ font: 75 12pt &quot;Noto Naskh Arabic UI&quot;;</string>
        <item>
         <widget class="QStackedWidget" name="windows_StackedWidget">
          <property name="currentIndex">
-          <number>5</number>
+          <number>1</number>
          </property>
          <widget class="QWidget" name="start_page">
           <layout class="QVBoxLayout" name="verticalLayout_4">
@@ -206,7 +206,7 @@ font: 10pt &quot;MS Shell Dlg 2&quot;;</string>
                   <rect>
                    <x>10</x>
                    <y>30</y>
-                   <width>59</width>
+                   <width>171</width>
                    <height>16</height>
                   </rect>
                  </property>
@@ -214,13 +214,13 @@ font: 10pt &quot;MS Shell Dlg 2&quot;;</string>
                   <string notr="true">color: rgb(255, 255, 255);</string>
                  </property>
                  <property name="text">
-                  <string>Select a file:</string>
+                  <string>Browse a file or multiple files:</string>
                  </property>
                 </widget>
                 <widget class="QPushButton" name="browse_button">
                  <property name="geometry">
                   <rect>
-                   <x>90</x>
+                   <x>200</x>
                    <y>30</y>
                    <width>75</width>
                    <height>23</height>
@@ -239,12 +239,12 @@ font: 10pt &quot;MS Shell Dlg 2&quot;;</string>
                   <string>Browse</string>
                  </property>
                 </widget>
-                <widget class="QLabel" name="filename">
+                <widget class="QLabel" name="error_message_file">
                  <property name="geometry">
                   <rect>
-                   <x>10</x>
-                   <y>70</y>
-                   <width>321</width>
+                   <x>300</x>
+                   <y>30</y>
+                   <width>221</width>
                    <height>21</height>
                   </rect>
                  </property>
@@ -255,20 +255,34 @@ font: 10pt &quot;MS Shell Dlg 2&quot;;</string>
                   <string/>
                  </property>
                 </widget>
-                <widget class="QLabel" name="error_message_file">
+                <widget class="QComboBox" name="fileselected_combobox">
                  <property name="geometry">
                   <rect>
-                   <x>180</x>
-                   <y>30</y>
-                   <width>251</width>
-                   <height>21</height>
+                   <x>10</x>
+                   <y>110</y>
+                   <width>391</width>
+                   <height>22</height>
+                  </rect>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">background-color: rgb(255, 255, 255);
+color: rgb(0, 0, 0);</string>
+                 </property>
+                </widget>
+                <widget class="QLabel" name="label_21">
+                 <property name="geometry">
+                  <rect>
+                   <x>10</x>
+                   <y>80</y>
+                   <width>161</width>
+                   <height>20</height>
                   </rect>
                  </property>
                  <property name="styleSheet">
                   <string notr="true">color: rgb(255, 255, 255);</string>
                  </property>
                  <property name="text">
-                  <string/>
+                  <string>Select a file:</string>
                  </property>
                 </widget>
                </widget>
@@ -460,8 +474,8 @@ font: 10pt &quot;MS Shell Dlg 2&quot;;</string>
                     <rect>
                      <x>0</x>
                      <y>0</y>
-                     <width>98</width>
-                     <height>28</height>
+                     <width>41</width>
+                     <height>16</height>
                     </rect>
                    </property>
                   </widget>
