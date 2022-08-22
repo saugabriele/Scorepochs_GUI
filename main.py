@@ -192,11 +192,17 @@ class ScorepochsApp(QMainWindow):
 
     def set_freqRange(self):
        if (self.button_freqRange.isChecked()):
+            self.maxfreqRange_error_message.clear()
+            self.minfreqRange_error_message.clear()
+            self.scorepochs_error_message.clear()
             self.min_freqRange.setText('1')
             self.max_freqRange.setText('40')
             self.min_freqRange.setReadOnly(True)
             self.max_freqRange.setReadOnly(True)
        else:
+           self.maxfreqRange_error_message.clear()
+           self.minfreqRange_error_message.clear()
+           self.scorepochs_error_message.clear()
            self.min_freqRange.setReadOnly(False)
            self.max_freqRange.setReadOnly(False)
            self.min_freqRange.clear()
@@ -325,7 +331,7 @@ class ScorepochsApp(QMainWindow):
         html_map = QtCore.QUrl.fromLocalFile(url)
         webView.load(html_map)
         webView.setFixedWidth(1090)
-        webView.setMinimumHeight(600)
+        webView.setMinimumHeight(730)
         lay.addWidget(webView)
         self.scroll_layout.addWidget(container)
         self.windows_StackedWidget.setCurrentWidget(self.plot_page)
@@ -459,7 +465,8 @@ class Write_html:
             data.append(score_ch)
         fig = Figure()
         fig.add_trace(Heatmap(x=ep_name, y=ep_name[::-1], z=data[0][::-1], showscale=True, zmin=0,
-                              zmax=1,colorscale='Viridis'))
+                              zmax=1,colorscale='Viridis',
+                              hovertemplate="<br>".join(["x: %{x}","y: %{y}","Score: %{z}<extra></extra>"])))
         fig.update_layout(autosize=False, width=1080, height=560, title = 'Correlation Matrix:', yaxis_scaleanchor="x")
         fig.update_layout(
             updatemenus=[
@@ -491,18 +498,19 @@ class Write_html:
                                                 scoreVector[i][j],np.amax(scoreVector[i]), np.amin(scoreVector[i])))
                 if i == 0:
                     ep_name.append('E%d' % (j + 1))
-        fig = make_subplots(8, 8, subplot_titles=[ch_name for i, ch_name in enumerate(ch_names)])
+        fig = make_subplots(16, 4, subplot_titles=[ch_name for i, ch_name in enumerate(ch_names)])
         channel = 0
-        for i in range(8):
-            for j in range(8):
-                fig.add_trace(Heatmap(x= ep_name, z=[scoreVector[channel]], showscale=True, zmin=0, zmax=1,
-                                      colorscale='Viridis', hoverinfo = 'text', text=[hover_text[j+(8*i)]], xgap = 2),
-                              i + 1, j + 1)
+        for i in range(int(len(ch_names)/4)):
+            for j in range(4):
+                if (j+(i*4)) <= len(ch_names):
+                    fig.add_trace(Heatmap(x= ep_name, z=[scoreVector[channel]], showscale=True, zmin=0, zmax=1,
+                                          colorscale='Viridis', hoverinfo = 'text', text=[hover_text[j+(4*i)]], xgap = 2),
+                                  i + 1, j + 1)
                 channel = channel + 1
         fig.update_annotations(font_size=9)
         fig.update_xaxes(showticklabels=False)
         fig.update_yaxes(showticklabels=False)
-        fig.update_layout(autosize=False, width=1080, height=565)
+        fig.update_layout(autosize=False, width=1080, height=700)
         fig.write_html(name_html_file)
     '''
 
