@@ -66,7 +66,6 @@ class ScorepochsApp(QMainWindow):
         self.update_plot_button = self.Windows.findChild(QPushButton, 'update_plot_button')
         self.dimension_epochs_error_message = self.Windows.findChild(QLabel, 'dimension_epochs_error_message')
         self.compute_PSD_button = self.Windows.findChild(QPushButton, 'compute_PSD_button')
-        self.error_message_compute_PSD = self.Windows.findChild(QLabel, 'error_message_compute_PSD')
         self.compute_corr_matrix_button = self.Windows.findChild(QPushButton, 'compute_corr_matrix_button')
         self.compute_score_vector_button = self.Windows.findChild(QPushButton, 'compute_score_vector_button')
         self.compute_scorepochs_button = self.Windows.findChild(QPushButton, 'compute_scorepochs_button')
@@ -78,7 +77,13 @@ class ScorepochsApp(QMainWindow):
         self.channels_box = self.Windows.findChild(QSpinBox, 'channels_box')
         self.epochs_box = self.Windows.findChild(QSpinBox, 'epochs_box')
         self.button_freqRange = self.Windows.findChild(QCheckBox, 'button_freqRange')
+        self.psd_selection_frame = self.Menu_frame.findChild(QFrame, 'psd_selection_frame')
+        self.channel_spinbox = self.Menu_frame.findChild(QSpinBox, 'channel_spinbox')
+        self.epoch_spinbox = self.Menu_frame.findChild(QSpinBox, 'epoch_spinbox')
+        self.feedback_files = self.Windows.findChild(QLabel, 'feedback_files')
+        self.feedback_freq = self.Windows.findChild(QLabel, 'feedback_freq')
         self.epochs_box.setMaximum(0)
+        self.epoch_spinbox.setMaximum(0)
         self.browse.clicked.connect(self.browseFile)
         self.add_plot.clicked.connect(self.eeg_plots)
         self.plot_results_button.clicked.connect(self.changepage_PlotResults)
@@ -103,9 +108,11 @@ class ScorepochsApp(QMainWindow):
         self.max_freqRange.editingFinished.connect(self.validating_max_freqRange)
         self.button_freqRange.stateChanged.connect(self.set_freqRange)
         self.fileselected_combobox.currentTextChanged.connect(self.new_file_selected)
+        self.psd_selection_frame.setVisible(False)
         self.error_message.setReadOnly(True)
 
     def browseFile(self):
+        self.feedback_files.clear()
         self.fileselected_combobox.clear()
         home_directory = expanduser('~')
         self.fname, _ = QFileDialog.getOpenFileNames(self, 'Open file', home_directory, 'CSV Files (*.csv)')
@@ -116,6 +123,7 @@ class ScorepochsApp(QMainWindow):
                 return
         else:
             self.error_message_filename.clear()
+            self.feedback_files.setText('Files selected successfully')
             for i in range(len(self.fname)):
                 self.fileselected_combobox.insertItem(i, str(self.fname[i]))
 
@@ -123,8 +131,10 @@ class ScorepochsApp(QMainWindow):
         self.error_message_frequency.clear()
         rule = QDoubleValidator(1, 1000, 0)
         list = rule.validate(self.frequency.text(), 0)
+        self.feedback_freq.setText('Frequency selected successfully')
         if list[0] != 2:
             self.error_message_frequency.setText('The frequency can have a value from 1 to 1000 [Hz]')
+            self.feedback_freq.clear()
 
     def validating_frequency_example(self):
         self.error_message_frequency_example.clear()
@@ -149,27 +159,36 @@ class ScorepochsApp(QMainWindow):
                 'The sampling duration can have a value from 1 to 100 [s]\n')
 
     def validating_time_dimension_epochs(self):
-        self.error_message_compute_PSD.clear()
         self.dimension_epochs_error_message.clear()
         self.scorepochs_error_message.clear()
-        if self.time_dimension_epochs.text() != '':
-            self.max = (1/int(self.frequency.text())) * (len(self.Yarray[0])-1)
-            min = (1/int(self.frequency.text()))
-            rule = QDoubleValidator(min, self.max , 10)
-            list = rule.validate(self.time_dimension_epochs.text(), 0)
-            self.epochs_box.setMinimum(1)
-            epLen = round(int(self.time_dimension_epochs.text())*int(self.frequency.text()))
-            dataLen = len(self.Yarray[0])
-            index = range(0, int(dataLen - epLen + 1), int(epLen + 1))
-            self.epochs_box.setMaximum(len(index))
-            if list[0] != 2:
-                self.dimension_epochs_error_message.setText(
-                    'Value out of range or incorrect format.[Format ex. "10,00"]')
+        if self.fig is None:
+            self.dimension_epochs_error_message.setText('First you have to create the plot.')
+            self.time_dimension_epochs.clear()
+        else:
+            if self.time_dimension_epochs.text() != '':
+                self.max = (1/int(self.frequency.text())) * (len(self.Yarray[0])-1)
+                min = (1/int(self.frequency.text()))
+                rule = QDoubleValidator(min, self.max , 10)
+                list = rule.validate(self.time_dimension_epochs.text(), 0)
+                self.epochs_box.setMinimum(1)
+                self.epoch_spinbox.setMinimum(1)
+                epLen = round(int(self.time_dimension_epochs.text())*int(self.frequency.text()))
+                dataLen = len(self.Yarray[0])
+                index = range(0, int(dataLen - epLen + 1), int(epLen + 1))
+                self.epochs_box.setMaximum(len(index))
+                self.epoch_spinbox.setMaximum(len(index))
+                if list[0] != 2:
+                    self.dimension_epochs_error_message.setText('Value out of range or incorrect format.[Format ex. "10,00"]')
+                    self.epochs_box.setMinimum(0)
+                    self.epochs_box.setMaximum(0)
+                    self.epoch_spinbox.setMinimum(0)
+                    self.epoch_spinbox.setMaximum(0)
+            else:
+                self.dimension_epochs_error_message.setText('Insert a value.')
                 self.epochs_box.setMinimum(0)
                 self.epochs_box.setMaximum(0)
-        else:
-            self.dimension_epochs_error_message.setText(
-                'Insert a value.')
+                self.epoch_spinbox.setMinimum(0)
+                self.epoch_spinbox.setMaximum(0)
 
     def validating_min_freqRange(self):
         self.minfreqRange_error_message.clear()
@@ -189,6 +208,15 @@ class ScorepochsApp(QMainWindow):
 
     def new_file_selected(self):
         self.fig = None
+        self.time_dimension_epochs.clear()
+        self.epochs_box.setMinimum(0)
+        self.epochs_box.setMaximum(0)
+        self.epoch_spinbox.setMinimum(0)
+        self.epoch_spinbox.setMaximum(0)
+        self.channels_box.setMinimum(0)
+        self.channels_box.setMaximum(0)
+        self.channel_spinbox.setMinimum(0)
+        self.channel_spinbox.setMaximum(0)
 
     def set_freqRange(self):
        if (self.button_freqRange.isChecked()):
@@ -219,16 +247,25 @@ class ScorepochsApp(QMainWindow):
             self.message_data_processing.repaint()
             self.Yarray, self.Xarray, self.ch_names= self.data_proc.csv_File(self.fileselected_combobox.currentText(),
                                                                              int(self.frequency.text()))
+            self.channels_box.setMaximum(len(self.Yarray))
+            self.channels_box.setMinimum(1)
+            self.channel_spinbox.setMaximum(len(self.Yarray))
+            self.channel_spinbox.setMinimum(1)
+            self.epochs_box.setMinimum(0)
+            self.epochs_box.setMaximum(0)
+            self.epoch_spinbox.setMinimum(0)
+            self.epoch_spinbox.setMaximum(0)
             self.fig = self.write_html.create_file_html(self.Yarray, self.Xarray, self.ch_names)
             self.plot()
 
     def changepage_addfile(self):
         self.windows_StackedWidget.setCurrentWidget(self.data_page)
-        self.message_data_processing.clear()
+        self.psd_selection_frame.setVisible(False)
 
     def changepage_createExample(self):
         self.windows_StackedWidget.setCurrentWidget(self.example_page)
         self.message_create_file.clear()
+        self.psd_selection_frame.setVisible(False)
 
     def changepage_PlotResults(self):
         if self.fig is not None:
@@ -239,26 +276,29 @@ class ScorepochsApp(QMainWindow):
             self.error_message.setText('First create the figure that displays traces of the M / EEG channels.')
 
     def changepage_Scorepochs_Functions(self):
-        if self.fig is not None:
-            self.error_message.clear()
-            self.windows_StackedWidget.setCurrentWidget(self.plot_settings_page)
-            self.channels_box.setMaximum(len(self.Yarray))
-            self.channels_box.setMinimum(1)
-        else:
-            self.windows_StackedWidget.setCurrentWidget(self.data_page)
-            self.error_message.setText('First create the figure that displays traces of the M / EEG channels.')
+        self.message_data_processing.clear()
+        self.error_message.clear()
+        self.dimension_epochs_error_message.clear()
+        self.windows_StackedWidget.setCurrentWidget(self.plot_settings_page)
+        self.psd_selection_frame.setVisible(False)
+        self.channels_box.setValue(self.channel_spinbox.value())
+        self.epochs_box.setValue(self.epoch_spinbox.value())
 
     def update_Plot(self):
         if str(self.dimension_epochs_error_message.text()) != '':
             return
         else:
-            self.write_html.update_Plot(self.time_dimension_epochs.text(),self.frequency.text(),self.Yarray,self.fig)
-            self.plot('update_figure.html')
+            if self.time_dimension_epochs.text() != '':
+                    self.write_html.update_Plot(self.time_dimension_epochs.text(),self.frequency.text(),self.Yarray,self.fig)
+                    self.psd_selection_frame.setVisible(True)
+                    self.plot('update_figure.html')
+            else:
+                self.dimension_epochs_error_message.setText('First you have to insert the epochs dimension.')
 
     def compute_Power_spectrum(self):
         if str(self.dimension_epochs_error_message.text()) != '' or self.time_dimension_epochs.text() == '' \
                 or self.epochs_box.value() == 0:
-            self.error_message_compute_PSD.setText('First you have to define the time dimension of each epoch.')
+            self.scorepochs_error_message.setText('First you have to define the time dimension of each epoch.')
         else:
             self.scorepochs_error_message.clear()
             name_html_file = 'update_figure.html'
@@ -283,6 +323,8 @@ class ScorepochsApp(QMainWindow):
                 self.plot(name_html_file)
             else:
                 self.scorepochs_error_message.setText('Insert value correctly!')
+                if self.time_dimension_epochs.text() == '':
+                    self.dimension_epochs_error_message.setText('First you have to insert the epochs dimension.')
 
     def compute_scoreVector(self):
         if self.min_freqRange.text() != '' and self.max_freqRange.text() != '' \
@@ -301,6 +343,8 @@ class ScorepochsApp(QMainWindow):
                 self.plot(name_html_file)
             else:
                 self.scorepochs_error_message.setText('Insert value correctly!')
+                if self.time_dimension_epochs.text() == '':
+                    self.dimension_epochs_error_message.setText('First you have to insert the epochs dimension.')
 
     def compute_scorepochs(self):
         if self.min_freqRange.text() != '' and self.max_freqRange.text() != '' \
@@ -319,6 +363,8 @@ class ScorepochsApp(QMainWindow):
                 self.plot(name_html_file)
             else:
                 self.scorepochs_error_message.setText('Insert value correctly!')
+                if self.time_dimension_epochs.text() == '':
+                    self.dimension_epochs_error_message.setText('First you have to insert the epochs dimension.')
 
 
     @QtCore.pyqtSlot()
@@ -512,45 +558,6 @@ class Write_html:
         fig.update_yaxes(showticklabels=False)
         fig.update_layout(autosize=False, width=1080, height=700)
         fig.write_html(name_html_file)
-    '''
-
-    def scoreVector_html(self, scoreVector, ch_names):
-        name_html_file = 'update_figure.html'
-        hover_text = []
-        ep_name = []
-        for i in range(len(scoreVector)):
-            hover_text.append([])
-            for j in range(len(scoreVector[0])):
-                hover_text[-1].append('Epoch: {}<br />Score: {}'.format((j + 1), scoreVector[i][j]))
-                if i == 0:
-                    ep_name.append('E%d' % (j + 1))
-        fig = make_subplots(3,1)
-        fig.add_trace(Heatmap(x=ep_name, z=[scoreVector[0]], showscale=True, zmin=0,
-                              zmax=1, colorscale='Viridis' , hoverinfo = 'text', text=[hover_text[0]]),2,1)
-        fig.update_layout(autosize=False, width=1080, height=560, title = 'Score vector:')
-        fig.update_yaxes(showticklabels=False)
-        fig.update_layout(
-            updatemenus=[
-                {
-                    "buttons": [
-                        {
-                            "label": "channel %d" % (c + 1),
-                            "method": "update",
-                            "args": [
-                                {"z": [[scoreVector[c]]],
-                                 "text" : [[hover_text[c]]]
-                                 }
-                            ],
-                        }
-                        for c in range(len(scoreVector))
-                    ],
-                    "x": 0.28,
-                    "y": 1.18,
-                }
-            ]
-        )
-        fig.write_html(name_html_file)
-    '''
 
     def scorepochs_html(self, scores):
         name_html_file = 'update_figure.html'
@@ -563,12 +570,11 @@ class Write_html:
                             subplot_titles=['Scorepochs result:',None, 'Score distribution graph:'])
         fig.add_trace(Heatmap(x=ep_name, z=[scores], showscale=True, zmin=0, zmax=1, colorscale='Viridis',xgap=3,
                               hovertemplate="<br>".join(["%{x}","Score: %{z}<extra></extra>"])))
-        fig.add_trace(Histogram(x=scores, xbins=dict(start=0, end=1, size=0.025), hovertemplate="<br>".join([
+        fig.add_trace(Histogram(x=scores, xbins=dict(size=0.005), hovertemplate="<br>".join([
             "Interval: %{x}",
             "Count: %{y}<extra></extra>",
         ])), 2, 2)
         fig.update_yaxes(showticklabels=False)
-        fig.update_layout(xaxis3=dict(range=[0, 1]))
         fig.update_layout(autosize=False, width=1080, height=565)
         fig.write_html(name_html_file)
 
