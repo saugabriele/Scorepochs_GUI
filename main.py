@@ -4,6 +4,7 @@ import sys
 import numpy as np
 import pandas as pd
 import copy
+import mne
 from numpy import size
 from os.path import expanduser, abspath
 from PyQt5.QtWebEngineWidgets import QWebEngineView
@@ -115,7 +116,8 @@ class ScorepochsApp(QMainWindow):
         self.feedback_files.clear()
         self.fileselected_combobox.clear()
         home_directory = expanduser('~')
-        self.fname, _ = QFileDialog.getOpenFileNames(self, 'Open file', home_directory, 'CSV Files (*.csv)')
+        self.fname, _ = QFileDialog.getOpenFileNames(self, 'Open file', home_directory,
+                                                     'CSV Files (*.csv) ;; EDF (*.edf)')
         if self.fname == []:
             if self.fileselected_combobox.currentIndex() == -1:
                 self.error_message_filename.setText('No File Selected.')
@@ -245,8 +247,12 @@ class ScorepochsApp(QMainWindow):
         else:
             self.message_data_processing.setText('Data processing...')
             self.message_data_processing.repaint()
-            self.Yarray, self.Xarray, self.ch_names= self.data_proc.csv_File(self.fileselected_combobox.currentText(),
-                                                                             int(self.frequency.text()))
+            if self.fileselected_combobox.currentText().endswith(".csv"):
+                self.Yarray, self.Xarray, self.ch_names= self.data_proc.csv_File(self.fileselected_combobox.currentText(),
+                                                                                int(self.frequency.text()))
+            else:
+                self.Yarray, self.Xarray, self.ch_names = self.data_proc.edf_File(self.fileselected_combobox.currentText(),
+                                                                                int(self.frequency.text()))
             self.channels_box.setMaximum(len(self.Yarray))
             self.channels_box.setMinimum(1)
             self.channel_spinbox.setMaximum(len(self.Yarray))
@@ -421,6 +427,16 @@ class Data_Processing:
         Ch_names = []
         for i in range(len(Yarray)):
             ch_name = 'channel ' + str(i+1)
+            Ch_names.append(ch_name)
+        return Yarray, Xarray, Ch_names
+
+    def edf_File(self, file_name, frequency):
+        data = mne.io.read_raw_edf(file_name)
+        Yarray = data.get_data()
+        Xarray = np.arange(0, size(Yarray[0]) / frequency, 1 / frequency)
+        Ch_names = []
+        for i in range(len(Yarray)):
+            ch_name = 'channel ' + str(i + 1)
             Ch_names.append(ch_name)
         return Yarray, Xarray, Ch_names
 
